@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="allianceauth-wormholesystems",
-    version="0.0.8",
+    version="0.0.13",
     author="Wormhole Systems",
     description="Wormhole Systems single sign-on & sidebar app for Alliance Auth",
     long_description=long_description,
