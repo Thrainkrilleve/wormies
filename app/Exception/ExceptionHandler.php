@@ -125,7 +125,16 @@ final readonly class ExceptionHandler
                 ->toResponse($request)
                 ->setStatusCode($status_code);
         } catch (Exception $e) {
-            Log::info(sprintf('Failed to render error page: %s', $e->getMessage()));
+            // $e is whatever broke while rendering the friendly error page itself
+            // (e.g. the session never started because $exception hit early enough
+            // in the pipeline) - it is not the error that actually caused this
+            // response. Log both, or the real cause never gets recorded anywhere.
+            Log::error('Failed to render error page', [
+                'render_exception' => $e->getMessage(),
+                'original_exception' => $exception->getMessage(),
+                'original_class' => $exception::class,
+                'original_trace' => $exception->getTraceAsString(),
+            ]);
 
             return $response;
         }
