@@ -23,7 +23,10 @@ def launch(request, token):
     Redirects the authenticated pilot directly to Wormhole Systems OAuth endpoint.
     Guarantees that the pilot has granted all required ESI tracking scopes before launching.
     """
-    target_url = f"{app_settings.WORMHOLESYSTEMS_URL.rstrip('/')}/auth/allianceauth"
+    # add_to_account=1 forces Wormhole Systems to run its OIDC round-trip even when
+    # the pilot already has an active session there. Without it, AllianceAuthController::redirect()
+    # short-circuits straight to the dashboard and never re-syncs the newly granted ESI scopes.
+    target_url = f"{app_settings.WORMHOLESYSTEMS_URL.rstrip('/')}/auth/allianceauth?add_to_account=1"
     return HttpResponseRedirect(target_url)
 
 
