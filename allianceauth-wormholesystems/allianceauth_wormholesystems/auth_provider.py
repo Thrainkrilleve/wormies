@@ -1,5 +1,9 @@
 from allianceauth_oidc.auth_provider import AllianceAuthOAuth2Validator
 
+from .views import WORMHOLESYSTEMS_SCOPES
+
+_WANTED_SCOPES = set(WORMHOLESYSTEMS_SCOPES)
+
 
 class WormholeSystemsOAuth2Validator(AllianceAuthOAuth2Validator):
     oidc_claim_scope = dict(AllianceAuthOAuth2Validator.oidc_claim_scope)
@@ -28,10 +32,26 @@ class WormholeSystemsOAuth2Validator(AllianceAuthOAuth2Validator):
             if not user or not user.is_authenticated:
                 return []
             chars_by_id = {}
+            relevance_by_id = {}
             for token in user.token_set.prefetch_related("scopes").order_by("-created"):
                 cid = token.character_id
                 scopes = list(token.scopes.values_list("name", flat=True))
-                if cid not in chars_by_id or len(scopes) > len(chars_by_id[cid]["scopes"]):
+                # Alliance Auth keeps a separate Token row per distinct scope
+                # combination any app has ever requested for this character, so a
+                # character can have many tokens (one per app). Reporting a token's
+                # scopes is only useful to us if that same token's access/refresh
+                # pair can actually call them, so rank by how much of *our* scope
+                # list a token covers rather than its total scope count - otherwise
+                # some unrelated app's larger token wins and we report scopes the
+                # returned access_token isn't actually authorized to use.
+                relevance = len(_WANTED_SCOPES.intersection(scopes))
+                if cid not in chars_by_id or (
+                    relevance,
+                    len(scopes),
+                ) > (
+                    relevance_by_id[cid],
+                    len(chars_by_id[cid]["scopes"]),
+                ):
                     chars_by_id[cid] = {
                         "character_id": token.character_id,
                         "character_name": token.character_name,
@@ -41,6 +61,7 @@ class WormholeSystemsOAuth2Validator(AllianceAuthOAuth2Validator):
                         "expires_in": 1200,
                         "scopes": scopes,
                     }
+                    relevance_by_id[cid] = relevance
             return list(chars_by_id.values())
 
         def get_discord_account(request):
