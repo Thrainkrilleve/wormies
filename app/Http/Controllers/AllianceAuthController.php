@@ -48,9 +48,20 @@ final class AllianceAuthController extends Controller
 
         $code = (string) $request->query('code');
         if ($code === '') {
-            $errorDesc = (string) $request->query('error_description', 'Authorization was denied by Alliance Auth.');
+            $error = (string) $request->query('error', 'access_denied');
+            $errorDesc = (string) $request->query('error_description', '');
 
-            return to_route('login')->withErrors(['auth' => $errorDesc]);
+            Log::warning('Alliance Auth OAuth callback denied or returned error', [
+                'error' => $error,
+                'error_description' => $errorDesc,
+                'query' => $request->all(),
+            ]);
+
+            $message = $errorDesc !== ''
+                ? $errorDesc
+                : "Authorization was denied by Alliance Auth ({$error}). Ensure your Alliance Auth account or state/group has the 'allianceauth_oidc.access_oidc' permission.";
+
+            return to_route('login')->withErrors(['auth' => $message]);
         }
 
         $accountId = Session::get('add_to_account');
