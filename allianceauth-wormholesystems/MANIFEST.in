@@ -1,0 +1,3 @@
+include README.md
+include LICENSE
+recursive-include allianceauth_wormholesystems *.html *.py *.json
