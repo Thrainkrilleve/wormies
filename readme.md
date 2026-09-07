@@ -23,11 +23,13 @@ Like Wiki.js, Mumble, or Grafana, Wormhole Systems runs as a Docker companion se
 
 In your Alliance Auth setup (e.g. `aa-docker`):
 
-1. Add the package to your `conf/requirements.txt`:
+1. run `pip install git+https://github.com/Thrainkrilleve/wormies.git` inside your Alliance Auth environment
+
+2. Add the package to your `conf/requirements.txt`:
    ```text
-   git+https://github.com/Thrainkrilleve/wormies.git
+   allianceauth-wormholesystems @ git+https://github.com/Thrainkrilleve/wormies.git
    ```
-   *(Or run `pip install git+https://github.com/Thrainkrilleve/wormies.git` inside your Alliance Auth environment)*
+  
 
 2. Add to your `conf/local.py`:
    ```python
@@ -90,7 +92,7 @@ docker compose up -d
 
 ---
 
-### Step 5: Configure Cloudflare Tunnel Dashboard
+### Step 5: Configure Cloudflare Tunnel Dashboard (If you use cloudflare)
 
 In your **Cloudflare Zero Trust Dashboard** &rarr; **Networks** &rarr; **Tunnels** &rarr; your tunnel &rarr; **Public Hostnames**:
 
