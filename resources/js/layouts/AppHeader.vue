@@ -269,14 +269,19 @@ const documentationItem: NavItem = {
                         </DropdownMenu>
                     </template>
                     <template v-else>
-                        <Link
-                            :href="LoginController.show()"
+                        <!-- Plain navigation, not an Inertia Link: /login can redirect
+                             cross-origin to Alliance Auth depending on config, and an
+                             Inertia XHR-driven visit can't follow a cross-origin
+                             redirect (the browser blocks it as a CORS violation, same
+                             as any other cross-origin XHR) - a real page navigation
+                             follows it without issue. -->
+                        <a
+                            :href="LoginController.show().url"
                             class="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-                            prefetch
                         >
                             <LogIn class="size-4" />
                             <span class="hidden sm:inline">Login</span>
-                        </Link>
+                        </a>
                     </template>
                 </div>
             </div>

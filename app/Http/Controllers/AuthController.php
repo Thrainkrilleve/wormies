@@ -33,7 +33,12 @@ final readonly class AuthController
         Session::invalidate();
         Session::regenerateToken();
 
-        return to_route('login')->notify(
+        // Not route('login'): that redirects straight to Alliance Auth when
+        // ALLIANCEAUTH_ONLY is set, which this request (fired via an Inertia
+        // Link, i.e. an XHR) can't follow cross-origin - the browser blocks it
+        // as a CORS violation rather than actually redirecting. The landing
+        // page is same-origin and never redirects further.
+        return to_route('landing')->notify(
             'Logged out successfully.',
             'You have been logged out of your account.'
         );
