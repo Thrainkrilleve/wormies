@@ -4,7 +4,6 @@ from django.conf import settings
 WORMHOLESYSTEMS_URL = getattr(
     settings,
     "WORMHOLESYSTEMS_URL",
-    "https://wormhole.r3v-w.space",
 )
 
 # Icon class for the sidebar menu item (FontAwesome)
