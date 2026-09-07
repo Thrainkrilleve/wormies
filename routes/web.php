@@ -59,8 +59,8 @@ Route::get('/', [LandingController::class, 'index'])->name('landing')->middlewar
 Route::get('documentation/{path?}', [DocumentationController::class, 'index'])->where('path', '.*')->name('documentation');
 Route::get('login', [LoginController::class, 'show'])->name('login');
 Route::get('auth', [AuthController::class, 'show'])->name('auth');
-Route::get('eve', fn () => redirect()->route('allianceauth.redirect'))->name('eve.show');
-Route::get('eve/callback', fn () => redirect()->route('allianceauth.redirect'))->name('eve.store');
+Route::get('eve', fn (\Illuminate\Http\Request $request) => redirect()->route('allianceauth.redirect', $request->query()))->name('eve.show');
+Route::get('eve/callback', fn (\Illuminate\Http\Request $request) => redirect()->route('allianceauth.redirect', $request->query()))->name('eve.store');
 Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->name('allianceauth.redirect');
 Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->name('allianceauth.callback');
 Route::get('manifest.webmanifest', function () {

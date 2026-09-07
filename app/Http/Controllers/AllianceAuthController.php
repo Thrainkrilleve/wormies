@@ -29,7 +29,7 @@ final class AllianceAuthController extends Controller
         $state = Str::random(40);
         $request->session()->put('allianceauth_state', $state);
 
-        return redirect()->away($service->getAuthorizationUrl($state));
+        return redirect()->away($service->getAuthorizationUrl($state, $request->query('scopes')));
     }
 
     public function callback(Request $request, AllianceAuthService $service): RedirectResponse

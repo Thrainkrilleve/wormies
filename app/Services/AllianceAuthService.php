@@ -51,13 +51,16 @@ final readonly class AllianceAuthService
         return (string) config('services.allianceauth.redirect', route('allianceauth.callback'));
     }
 
-    public function getAuthorizationUrl(string $state): string
+    public function getAuthorizationUrl(string $state, ?string $extraScopes = null): string
     {
+        $baseScopes = (string) config('services.allianceauth.scopes', 'openid profile email groups');
+        $scope = $extraScopes ? trim($baseScopes . ' ' . $extraScopes) : $baseScopes;
+
         $params = http_build_query([
             'response_type' => 'code',
             'client_id' => $this->getClientId(),
             'redirect_uri' => $this->getRedirectUri(),
-            'scope' => (string) config('services.allianceauth.scopes', 'openid profile email'),
+            'scope' => $scope,
             'state' => $state,
         ]);
 
