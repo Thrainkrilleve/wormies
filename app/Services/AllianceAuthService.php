@@ -218,7 +218,7 @@ final readonly class AllianceAuthService
         }
 
         // If we have character name but not ID, resolve via ESI universe/ids
-        if ($characterName && ! $characterId) {
+        if ($characterName) {
             $idsResult = $this->esi->getIds([(string) $characterName]);
             if ($idsResult->wasSuccessful() && ! empty($idsResult->data->characters)) {
                 $characterId = $idsResult->data->characters[0]->id;
