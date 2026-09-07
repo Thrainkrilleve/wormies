@@ -8,8 +8,9 @@ import UserInfo from '@/components/user/UserInfo.vue';
 import { auth, logout } from '@/routes';
 import UserCharacters from '@/routes/user-characters';
 import type { User } from '@/types';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface Props {
     user: User;
@@ -20,6 +21,13 @@ const handleLogout = () => {
 };
 
 defineProps<Props>();
+
+// AuthController::show() always sends add_to_account through Alliance Auth,
+// which makes no sense for a pilot who signed in with native EVE SSO
+// specifically to avoid needing an AA account - offer both entry points, same
+// as the login page does, rather than assuming everyone has AA.
+const page = usePage();
+const allianceAuthEnabled = computed(() => Boolean(page.props.allianceAuthEnabled));
 </script>
 
 <template>
@@ -36,7 +44,7 @@ defineProps<Props>();
                 {{ character.name }}
             </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem as-child>
+        <DropdownMenuItem v-if="allianceAuthEnabled" as-child>
             <a
                 class="block w-full"
                 :href="
@@ -48,7 +56,13 @@ defineProps<Props>();
                 "
             >
                 <PlusIcon class="mr-2 h-4 w-4" />
-                Add Character
+                Add Character (Alliance Auth)
+            </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem as-child>
+            <a class="block w-full" href="/eve/add-character?add_to_account=1">
+                <PlusIcon class="mr-2 h-4 w-4" />
+                Add Character (EVE SSO)
             </a>
         </DropdownMenuItem>
         <DropdownMenuItem as-child v-if="user.characters.length > 1">

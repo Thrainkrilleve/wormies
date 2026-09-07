@@ -73,6 +73,13 @@ Route::get('eve', function (\Illuminate\Http\Request $request, EveController $co
     return $controller->show($request);
 })->name('eve.show');
 Route::get('eve/callback', [EveController::class, 'store'])->name('eve.store');
+// Dedicated entry point for a pilot who is already logged in via native EVE
+// SSO to add another character to that same account. Deliberately bypasses
+// the add_to_account guard above - that guard exists to keep an *AA-linked*
+// account's scope-grant flows (e.g. MapScopeController) on Alliance Auth, but
+// a native-only account has no AA identity to keep in sync in the first
+// place, so sending it through AA here would force an unwanted AA login.
+Route::get('eve/add-character', [EveController::class, 'show'])->name('eve.add-character');
 Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->name('allianceauth.redirect');
 Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->name('allianceauth.callback');
 Route::get('manifest.webmanifest', function () {

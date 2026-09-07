@@ -74,6 +74,7 @@ final class HandleInertiaRequests extends Middleware
                 $request->session()->get('notification')
             ),
             'missing_scopes' => $this->getMissingScopes(),
+            'allianceAuthEnabled' => (bool) config('services.allianceauth.enabled', true),
             'pinned_maps' => fn (): array => $this->getPinnedMaps($request->user()),
             'discord' => fn (): array => [
                 'invite' => config('services.discord.invite'),
