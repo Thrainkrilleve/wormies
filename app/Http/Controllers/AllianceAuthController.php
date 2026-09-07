@@ -59,7 +59,9 @@ final class AllianceAuthController extends Controller
 
             $message = $errorDesc !== ''
                 ? $errorDesc
-                : "Authorization was denied by Alliance Auth ({$error}). Ensure your Alliance Auth account or state/group has the 'allianceauth_oidc.access_oidc' permission.";
+                : ($error === 'invalid_scope'
+                    ? "Authorization failed: Invalid OAuth scope requested ({$error})."
+                    : "Authorization was denied by Alliance Auth ({$error}).");
 
             return to_route('login')->withErrors(['auth' => $message]);
         }

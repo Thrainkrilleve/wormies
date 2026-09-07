@@ -57,7 +57,7 @@ final readonly class AllianceAuthService
             'response_type' => 'code',
             'client_id' => $this->getClientId(),
             'redirect_uri' => $this->getRedirectUri(),
-            'scope' => 'openid profile email groups',
+            'scope' => (string) config('services.allianceauth.scopes', 'openid profile email'),
             'state' => $state,
         ]);
 
