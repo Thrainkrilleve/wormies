@@ -1,10 +1,12 @@
 # ==============================================================================
 # Wormhole Systems — Alliance Auth Drop-in Service Snippet
-# Paste this block into your existing aa-docker/docker-compose.yml.
 # All passwords, keys, and URLs are automatically pulled from your existing
 # Alliance Auth .env file!
 # ==============================================================================
 
+# ------------------------------------------------------------------------------
+# PART 1: Place this at the top of your docker-compose.yml (above "services:")
+# ------------------------------------------------------------------------------
 x-wormholesystems-base: &wormholesystems-base
   image: wormhole-systems:production
   env_file:
@@ -61,7 +63,11 @@ x-wormholesystems-base: &wormholesystems-base
     VITE_REVERB_PORT: "${WS_REVERB_PORT_CLIENT:-443}"
     VITE_REVERB_SCHEME: "${WS_REVERB_SCHEME_CLIENT:-https}"
 
-services:
+
+# ------------------------------------------------------------------------------
+# PART 2: Paste these services inside your existing "services:" section
+# (Do NOT add a second "services:" header!)
+# ------------------------------------------------------------------------------
   wormholesystems_mysql:
     image: mariadb:11.2
     container_name: wormholesystems-mysql
@@ -135,6 +141,10 @@ services:
       wormholesystems_app:
         condition: service_healthy
 
-volumes:
-  ws-mysql-data:
-  ws-laravel-storage:
+
+# ------------------------------------------------------------------------------
+# PART 3: Add these volumes under your existing "volumes:" section
+# ------------------------------------------------------------------------------
+# volumes:
+#   ws-mysql-data:
+#   ws-laravel-storage:
