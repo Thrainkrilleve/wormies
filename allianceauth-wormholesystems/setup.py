@@ -5,12 +5,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="allianceauth-wormholesystems",
-    version="0.1.0",
+    version="0.0.2",
     author="Wormhole Systems",
     description="Wormhole Systems single sign-on & sidebar app for Alliance Auth",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://wormhole.systems",
+    url="https://github.com/Thrainkrilleve/wormies",
     packages=find_packages(),
     classifiers=[
         "Environment :: Web Environment",
