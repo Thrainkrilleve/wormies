@@ -79,7 +79,7 @@ return [
         'client_secret' => env('ALLIANCEAUTH_CLIENT_SECRET'),
         'redirect' => env('ALLIANCEAUTH_CALLBACK', 'https://wormhole.r3v-w.space/auth/allianceauth/callback'),
         'required_groups' => env('ALLIANCEAUTH_REQUIRED_GROUPS', ''),
-        'scopes' => env('ALLIANCEAUTH_SCOPES', 'openid profile email'),
+        'scopes' => env('ALLIANCEAUTH_SCOPES', 'openid profile email groups'),
         'only' => filter_var(env('ALLIANCEAUTH_ONLY', false), FILTER_VALIDATE_BOOLEAN),
     ],
 ];
