@@ -1,0 +1,112 @@
+x-app-common: &app-common
+  image: wormhole-systems:production
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  env_file:
+    - .env
+  restart: unless-stopped
+  networks:
+    - ws-internal
+
+services:
+  app:
+    <<: *app-common
+    container_name: wormholesystems-app
+    ports:
+      - "${APP_PORT:-8090}:80"
+    volumes:
+      - laravel-storage:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:80/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  reverb:
+    <<: *app-common
+    container_name: wormholesystems-reverb
+    ports:
+      - "${REVERB_PORT:-8091}:8080"
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      app:
+        condition: service_healthy
+
+  mysql:
+    image: mariadb:11.2
+    hostname: mysql
+    container_name: wormholesystems-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password_change_me}
+      MYSQL_DATABASE: ${DB_DATABASE:-wormholesystems}
+      MYSQL_USER: ${DB_USERNAME:-wormholesystems}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-password_change_me}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ws-internal
+
+  redis:
+    image: redis:7.2
+    hostname: redis
+    container_name: wormholesystems-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ws-internal
+
+  queue:
+    <<: *app-common
+    container_name: wormholesystems-queue
+    deploy:
+      mode: replicated
+      replicas: 2
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    depends_on:
+      app:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app-common
+    container_name: wormholesystems-scheduler
+    command: ["supercronic", "-overlapping", "/etc/supercronic/laravel"]
+    depends_on:
+      app:
+        condition: service_healthy
+
+  killmails:
+    <<: *app-common
+    container_name: wormholesystems-killmails
+    command: php artisan app:listen-for-killmails
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  mysql-data:
+  laravel-storage:
+
+networks:
+  ws-internal:

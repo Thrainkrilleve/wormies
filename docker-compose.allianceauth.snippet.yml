@@ -1,0 +1,140 @@
+# ==============================================================================
+# Wormhole Systems — Alliance Auth Drop-in Service Snippet
+# Paste this block into your existing aa-docker/docker-compose.yml.
+# All passwords, keys, and URLs are automatically pulled from your existing
+# Alliance Auth .env file!
+# ==============================================================================
+
+x-wormholesystems-base: &wormholesystems-base
+  image: wormhole-systems:production
+  env_file:
+    - .env
+  restart: unless-stopped
+  volumes:
+    - ws-laravel-storage:/app/storage
+  environment:
+    # Core & Domains (automatically pulled from Alliance Auth)
+    APP_NAME: "Wormhole Systems"
+    APP_ENV: production
+    APP_DEBUG: "false"
+    APP_URL: ${WS_APP_URL:-${PROTOCOL:-https://}wormhole.${DOMAIN}}
+    CONTACT_EMAIL: ${ESI_USER_CONTACT_EMAIL}
+    AA_SECRET_KEY: ${AA_SECRET_KEY}
+
+    # Database (automatically uses your existing Alliance Auth DB password)
+    DB_CONNECTION: mysql
+    DB_HOST: wormholesystems_mysql
+    DB_PORT: 3306
+    DB_DATABASE: wormholesystems
+    DB_USERNAME: wormholesystems
+    DB_PASSWORD: ${WS_DB_PASSWORD:-${AA_DB_PASSWORD}}
+
+    # Redis Cache (connects to existing redis in stack)
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+
+    # Alliance Auth OIDC Single Sign-On
+    ALLIANCEAUTH_ENABLED: "true"
+    ALLIANCEAUTH_BASE_URL: "${PROTOCOL:-https://}${AUTH_SUBDOMAIN:-auth}.${DOMAIN}"
+    ALLIANCEAUTH_CLIENT_ID: ${WS_CLIENT_ID:-${WS_AUTH_CLIENT_ID}}
+    ALLIANCEAUTH_CLIENT_SECRET: ${WS_CLIENT_SECRET:-${WS_AUTH_CLIENT_SECRET}}
+    ALLIANCEAUTH_CALLBACK: "${WS_APP_URL:-${PROTOCOL:-https://}wormhole.${DOMAIN}}/auth/allianceauth/callback"
+    ALLIANCEAUTH_ONLY: "true"
+
+    # Shared CCP Developer Application Credentials (reusing Alliance Auth's)
+    EVE_CLIENT_ID: ${ESI_SSO_CLIENT_ID}
+    EVE_CLIENT_SECRET: ${ESI_SSO_CLIENT_SECRET}
+    EVE_CALLBACK: "${WS_APP_URL:-${PROTOCOL:-https://}wormhole.${DOMAIN}}/eve/callback"
+
+    # Real-time Map WebSockets (automatically derived from AA_SECRET_KEY)
+    REVERB_APP_ID: wormholesystems
+    REVERB_APP_KEY: ${WS_REVERB_KEY:-${AA_SECRET_KEY}}
+    REVERB_APP_SECRET: ${WS_REVERB_SECRET:-${AA_SECRET_KEY}}
+    REVERB_HOST: wormholesystems_reverb
+    REVERB_PORT: 8080
+    REVERB_SCHEME: http
+    REVERB_BEHIND_PROXY: "true"
+    BROADCAST_CONNECTION: reverb
+    VITE_REVERB_APP_KEY: "${WS_REVERB_KEY:-${AA_SECRET_KEY}}"
+    VITE_REVERB_HOST: "${WS_REVERB_HOST:-ws.wormhole.${DOMAIN}}"
+    VITE_REVERB_PORT: "${WS_REVERB_PORT_CLIENT:-443}"
+    VITE_REVERB_SCHEME: "${WS_REVERB_SCHEME_CLIENT:-https}"
+
+services:
+  wormholesystems_mysql:
+    image: mariadb:11.2
+    container_name: wormholesystems-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WS_DB_PASSWORD:-${AA_DB_PASSWORD}}
+      MYSQL_DATABASE: wormholesystems
+      MYSQL_USER: wormholesystems
+      MYSQL_PASSWORD: ${WS_DB_PASSWORD:-${AA_DB_PASSWORD}}
+    volumes:
+      - ws-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  wormholesystems_app:
+    <<: *wormholesystems-base
+    container_name: wormholesystems-app
+    ports:
+      - "${WS_APP_PORT:-8090}:80"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:80/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      wormholesystems_mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  wormholesystems_reverb:
+    <<: *wormholesystems-base
+    container_name: wormholesystems-reverb
+    ports:
+      - "${WS_REVERB_PORT:-8091}:8080"
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      wormholesystems_app:
+        condition: service_healthy
+
+  wormholesystems_queue:
+    <<: *wormholesystems-base
+    container_name: wormholesystems-queue
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    depends_on:
+      wormholesystems_app:
+        condition: service_healthy
+
+  wormholesystems_scheduler:
+    <<: *wormholesystems-base
+    container_name: wormholesystems-scheduler
+    command: ["supercronic", "-overlapping", "/etc/supercronic/laravel"]
+    depends_on:
+      wormholesystems_app:
+        condition: service_healthy
+
+  wormholesystems_killmails:
+    <<: *wormholesystems-base
+    container_name: wormholesystems-killmails
+    command: php artisan app:listen-for-killmails
+    depends_on:
+      wormholesystems_app:
+        condition: service_healthy
+
+volumes:
+  ws-mysql-data:
+  ws-laravel-storage:
