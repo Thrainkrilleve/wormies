@@ -7,6 +7,8 @@ namespace App\Jobs;
 use App\Models\Alliance;
 use App\Models\Character;
 use App\Models\Corporation;
+use App\Models\Faction;
+use App\Models\Station;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\ConnectionException;
@@ -66,17 +68,31 @@ final class UpdateAffiliations implements ShouldQueue
         $corp_data = $corporation_response->data;
 
         // Ensure related models exist before updating or creating
-        Character::query()->firstOrCreate([
-            'id' => $corp_data->ceo_id,
-        ]);
-        Character::query()->firstOrCreate([
-            'id' => $corp_data->creator_id,
-        ]);
+        if ($corp_data->ceo_id) {
+            Character::query()->firstOrCreate([
+                'id' => $corp_data->ceo_id,
+            ]);
+        }
+        if ($corp_data->creator_id) {
+            Character::query()->firstOrCreate([
+                'id' => $corp_data->creator_id,
+            ]);
+        }
 
         if ($corp_data->alliance_id !== null) {
             Alliance::query()->firstOrCreate([
                 'id' => $corp_data->alliance_id,
             ]);
+        }
+
+        $homeStationId = null;
+        if ($corp_data->home_station_id !== null && Station::query()->where('id', $corp_data->home_station_id)->exists()) {
+            $homeStationId = $corp_data->home_station_id;
+        }
+
+        $factionId = null;
+        if ($corp_data->faction_id !== null && Faction::query()->where('id', $corp_data->faction_id)->exists()) {
+            $factionId = $corp_data->faction_id;
         }
 
         Corporation::query()->updateOrCreate(
@@ -86,13 +102,13 @@ final class UpdateAffiliations implements ShouldQueue
                 'ticker' => $corp_data->ticker,
                 'ceo_id' => $corp_data->ceo_id,
                 'alliance_id' => $corp_data->alliance_id,
-                'faction_id' => $corp_data->faction_id,
+                'faction_id' => $factionId,
                 'description' => $corp_data->description,
                 'url' => $corp_data->url,
                 'member_count' => $corp_data->member_count,
                 'shares' => $corp_data->shares,
                 'tax_rate' => $corp_data->tax_rate,
-                'home_station_id' => $corp_data->home_station_id,
+                'home_station_id' => $homeStationId,
                 // See EnsureOrganisationExistsAction: NPC corporations come
                 // back with an empty founding date, not a null one.
                 'date_founded' => $corp_data->date_founded ?: null,
@@ -110,7 +126,7 @@ final class UpdateAffiliations implements ShouldQueue
             return;
         }
 
-        $alliance_doesnt_need_update = Corporation::query()
+        $alliance_doesnt_need_update = Alliance::query()
             ->where('id', $this->affiliation->alliance_id)
             ->where('last_updated', '>=', now()->subDays(1))
             ->exists();
@@ -132,19 +148,28 @@ final class UpdateAffiliations implements ShouldQueue
         $alliance_data = $alliance_response->data;
 
         // Ensure related models exist before updating or creating
-        Character::query()->firstOrCreate([
-            'id' => $alliance_data->creator_id,
-        ]);
-        Corporation::query()->firstOrCreate([
-            'id' => $alliance_data->executor_corporation_id,
-        ]);
+        if ($alliance_data->creator_id) {
+            Character::query()->firstOrCreate([
+                'id' => $alliance_data->creator_id,
+            ]);
+        }
+        if ($alliance_data->executor_corporation_id) {
+            Corporation::query()->firstOrCreate([
+                'id' => $alliance_data->executor_corporation_id,
+            ]);
+        }
+
+        $factionId = null;
+        if ($alliance_data->faction_id !== null && Faction::query()->where('id', $alliance_data->faction_id)->exists()) {
+            $factionId = $alliance_data->faction_id;
+        }
 
         Alliance::query()->updateOrCreate(
             ['id' => $this->affiliation->alliance_id],
             [
                 'name' => $alliance_data->name,
                 'ticker' => $alliance_data->ticker,
-                'faction_id' => $alliance_data->faction_id,
+                'faction_id' => $factionId,
                 'creator_id' => $alliance_data->creator_id,
                 'date_founded' => $alliance_data->date_founded ?: null,
                 'last_updated' => now(),

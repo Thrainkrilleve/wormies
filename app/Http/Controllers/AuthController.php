@@ -24,7 +24,7 @@ final readonly class AuthController
             Session::put('add_to_account', $this->user->id);
         }
 
-        return to_route('eve.show');
+        return to_route('allianceauth.redirect');
     }
 
     public function destroy(): RedirectResponse

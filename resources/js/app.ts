@@ -7,8 +7,16 @@ import { initializeRouting } from './composables/useRoutingWorker';
 import { preloadSovereigntyData } from './composables/useSovereigntyData';
 import { preloadStaticData } from './composables/useStaticData';
 
+const reverbConfig = (typeof window !== 'undefined' && (window as any).__reverb) || {};
+
 configureEcho({
     broadcaster: 'reverb',
+    key: reverbConfig.key || import.meta.env.VITE_REVERB_APP_KEY || 'local_reverb_key_12345',
+    wsHost: reverbConfig.host || import.meta.env.VITE_REVERB_HOST || (typeof window !== 'undefined' ? window.location.hostname : 'localhost'),
+    wsPort: Number(reverbConfig.port || import.meta.env.VITE_REVERB_PORT || 8091),
+    wssPort: Number(reverbConfig.port || import.meta.env.VITE_REVERB_PORT || 8091),
+    forceTLS: (reverbConfig.scheme ? reverbConfig.scheme === 'https' : (import.meta.env.VITE_REVERB_SCHEME ? import.meta.env.VITE_REVERB_SCHEME === 'https' : (typeof window !== 'undefined' && window.location.protocol === 'https:'))),
+    enabledTransports: ['ws', 'wss'],
 });
 
 router.on('finish', () => {

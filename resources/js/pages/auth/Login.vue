@@ -5,14 +5,17 @@ import { Button } from '@/components/ui/button';
 import MapPanelHeader from '@/components/ui/map-panel/MapPanelHeader.vue';
 import Notifications from '@/components/user/Notifications.vue';
 import SeoHead from '@/layouts/SeoHead.vue';
-import Eve from '@/routes/eve';
 import { UTCDate } from '@date-fns/utc';
 import { Link, usePage } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { computed } from 'vue';
 
+defineProps<{
+    allianceAuthEnabled?: boolean;
+}>();
+
 const page = usePage();
-const error = computed(() => page.props.errors?.eve);
+const error = computed(() => page.props.errors?.eve || page.props.errors?.auth);
 
 const currentYear = format(new UTCDate(), 'yyyy');
 </script>
@@ -52,7 +55,7 @@ const currentYear = format(new UTCDate(), 'yyyy');
                 </MapPanelHeader>
                 <div class="flex flex-col gap-3 p-6 sm:p-8">
                     <p class="mb-3 text-center text-sm leading-6 text-muted-foreground">
-                        Sign in or create your account with EVE Online to start mapping wormhole space.
+                        Sign in to access your alliance maps and start mapping wormhole space.
                     </p>
 
                     <div
@@ -62,21 +65,19 @@ const currentYear = format(new UTCDate(), 'yyyy');
                         {{ error }}
                     </div>
 
-                    <Button asChild size="lg">
-                        <a :href="Eve.show().url" class="flex items-center justify-center gap-3">
+                    <Button
+                        asChild
+                        size="lg"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md shadow-indigo-600/20"
+                    >
+                        <a href="/auth/allianceauth" class="flex items-center justify-center gap-3">
                             <LockIcon />
-                            Sign in with EVE Online
-                        </a>
-                    </Button>
-                    <Button asChild size="lg" variant="outline">
-                        <a :href="Eve.show({ query: { without_scopes: true } }).url" class="flex items-center justify-center gap-3">
-                            <LockIcon />
-                            Sign in without scopes
+                            Sign in with Alliance Auth
                         </a>
                     </Button>
 
                     <p class="mt-3 text-center font-mono text-[10px] tracking-wider text-muted-foreground/70 uppercase">
-                        ESI-secure · Official EVE Online SSO · Free to use
+                        ESI-secure · Alliance Auth Single Sign-On · Free to use
                     </p>
                 </div>
             </div>

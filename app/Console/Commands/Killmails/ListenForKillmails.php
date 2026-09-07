@@ -126,6 +126,12 @@ final class ListenForKillmails extends AppCommand
             return;
         }
 
+        if (! Solarsystem::query()->where('id', $killmail->getSolarSystemId())->exists()) {
+            $this->warn(sprintf('Solar system %d not found in database, skipping killmail %d.', $killmail->getSolarSystemId(), $killmail->killmail_id));
+
+            return;
+        }
+
         $stored = Killmail::query()->updateOrCreate(
             ['id' => $killmail->killmail_id],
             [

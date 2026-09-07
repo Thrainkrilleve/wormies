@@ -19,6 +19,16 @@
         })();
     </script>
 
+    {{-- Reverb WebSocket configuration for Echo --}}
+    <script>
+        window.__reverb = {
+            key: @json(env('VITE_REVERB_APP_KEY', config('reverb.apps.apps.0.key', 'local_reverb_key_12345'))),
+            host: @json(env('VITE_REVERB_HOST', request()->getHost())),
+            port: @json((int) env('VITE_REVERB_PORT', request()->isSecure() ? 443 : 8091)),
+            scheme: @json(env('VITE_REVERB_SCHEME', request()->isSecure() ? 'https' : 'http')),
+        };
+    </script>
+
     {{-- Inline style to set the HTML background color based on our theme in app.css --}}
     <style>
         html {

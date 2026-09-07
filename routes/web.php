@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AllianceAuthController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BulkMapConnectionController;
 use App\Http\Controllers\BulkSignatureController;
@@ -58,8 +59,10 @@ Route::get('/', [LandingController::class, 'index'])->name('landing')->middlewar
 Route::get('documentation/{path?}', [DocumentationController::class, 'index'])->where('path', '.*')->name('documentation');
 Route::get('login', [LoginController::class, 'show'])->name('login');
 Route::get('auth', [AuthController::class, 'show'])->name('auth');
-Route::get('eve', [EveController::class, 'show'])->name('eve.show');
-Route::get('eve/callback', [EveController::class, 'store'])->name('eve.store');
+Route::get('eve', fn () => redirect()->route('allianceauth.redirect'))->name('eve.show');
+Route::get('eve/callback', fn () => redirect()->route('allianceauth.redirect'))->name('eve.store');
+Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->name('allianceauth.redirect');
+Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->name('allianceauth.callback');
 
 Route::middleware('auth')->group(function () {
 

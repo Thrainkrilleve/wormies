@@ -71,4 +71,14 @@ return [
         'redirect' => env('DISCORD_CALLBACK', 'https://wormholesystems.test/discord/callback'),
         'test_guild_id' => env('DISCORD_TEST_GUILD_ID'),
     ],
+    'allianceauth' => [
+        'enabled' => env('ALLIANCEAUTH_ENABLED', true),
+        'base_url' => env('ALLIANCEAUTH_BASE_URL', 'https://auth.r3v-w.space'),
+        'internal_url' => env('ALLIANCEAUTH_INTERNAL_URL'),
+        'client_id' => env('ALLIANCEAUTH_CLIENT_ID'),
+        'client_secret' => env('ALLIANCEAUTH_CLIENT_SECRET'),
+        'redirect' => env('ALLIANCEAUTH_CALLBACK', 'https://wormhole.r3v-w.space/auth/allianceauth/callback'),
+        'required_groups' => env('ALLIANCEAUTH_REQUIRED_GROUPS', ''),
+        'only' => filter_var(env('ALLIANCEAUTH_ONLY', false), FILTER_VALIDATE_BOOLEAN),
+    ],
 ];
