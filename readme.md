@@ -19,12 +19,50 @@ Wormhole mapping and tracking for EVE Online — live at [wormhole.systems](http
 
 ## Self-hosting & Deployment
 
-### 1. Cloudflare Tunnels & Docker Stack (Recommended)
-This repository includes a production-ready container stack for hosting on a home server or VPS behind Cloudflare Tunnels:
-- **[docker-compose.cloudflare.yml](docker-compose.cloudflare.yml)**: Pre-configured for FrankenPHP, MariaDB, Redis, queue workers, killmail listener, and Reverb WebSockets.
-- **[docs/cloudflare-tunnel-setup.md](docs/cloudflare-tunnel-setup.md)**: Step-by-step setup guide for domains, Cloudflare Tunnel ingress rules, and environment variables.
+### Deployment Architecture & File Locations
 
-### 2. Standard Upstream Installer
+When self-hosting Wormhole Systems with Alliance Auth, the stack is divided into two distinct parts that can live on the **same machine** (e.g. your home server) or on **separate servers**:
+
+```text
+/your-server-root/
+├── allianceauth/                          # Your Alliance Auth installation (e.g. aa-docker)
+│   ├── conf/local.py                      # Auth settings (OIDC scopes, Discord, etc.)
+│   └── (allianceauth-wormholesystems)     # Plugin installed via pip into AA container/venv
+│
+└── wormholesystems/                       # This repository (clone of Thrainkrilleve/wormies)
+    ├── docker-compose.cloudflare.yml      # Container stack (FrankenPHP, Reverb, MariaDB, Redis)
+    ├── .env                               # Wormhole Systems config (OIDC credentials, DB, etc.)
+    ├── allianceauth-wormholesystems/      # Plugin source code (ready to install into AA)
+    └── docs/
+        └── cloudflare-tunnel-setup.md     # Cloudflare Tunnel ingress rules & DNS guide
+```
+
+#### Where to put the files:
+
+1. **Alliance Auth Server / Container:**
+   - Alliance Auth only needs the **[`allianceauth-wormholesystems/`](allianceauth-wormholesystems/)** plugin.
+   - You can install it directly from GitHub without cloning the rest of the mapper:
+     ```bash
+     pip install git+https://github.com/Thrainkrilleve/wormies.git#subdirectory=allianceauth-wormholesystems
+     ```
+   - Or if Alliance Auth is on the same machine, install it from the local path:
+     ```bash
+     pip install -e /path/to/wormies/allianceauth-wormholesystems
+     ```
+
+2. **Wormhole Systems Server:**
+   - Clone the entire repository:
+     ```bash
+     git clone https://github.com/Thrainkrilleve/wormies.git /opt/wormholesystems
+     cd /opt/wormholesystems
+     cp .env.cloudflare.example .env
+     ```
+   - Follow the [Cloudflare Tunnel Setup Guide](docs/cloudflare-tunnel-setup.md) to configure your domains and start the stack:
+     ```bash
+     docker compose -f docker-compose.cloudflare.yml up -d
+     ```
+
+### Upstream Standalone Installer
 To run an upstream standalone instance without Alliance Auth:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://install.wormhole.systems | sh
@@ -142,12 +180,22 @@ php artisan schedule:work   # scheduled tasks
 
 Real-time features need **Reverb**: in Herd's Services panel, add "Reverb" under _Broadcasting_ and start it (not enabled by default; runs at `reverb.herd.test:443`).
 
-## EVE application setup
+## EVE Online Credentials & SSO
 
-SSO login requires an application at [developers.eveonline.com](https://developers.eveonline.com/):
+### With Alliance Auth (Zero Dev Portal Duplication)
+You **do NOT need to create a second application** on the CCP Developer Portal! Wormhole Systems automatically shares your Alliance Auth EVE developer credentials:
+1. Locate `ESI_SSO_CLIENT_ID` and `ESI_SSO_CLIENT_SECRET` in your Alliance Auth `local.py`.
+2. Copy them directly into Wormhole Systems `.env`:
+   ```env
+   EVE_CLIENT_ID=your_allianceauth_client_id
+   EVE_CLIENT_SECRET=your_allianceauth_client_secret
+   ```
+3. Pilots authenticate via Alliance Auth SSO. All required tracking scopes are validated during Alliance Auth login, and their ESI character tokens are automatically synced to Wormhole Systems.
 
+### Standalone Setup (Without Alliance Auth)
+Only if running standalone without Alliance Auth, create an app at [developers.eveonline.com](https://developers.eveonline.com/):
 - **Connection type:** Authentication & API Access
-- **Callback URL:** `https://wormholesystems.test/eve/callback`
+- **Callback URL:** `https://yourdomain.com/eve/callback`
 - **Scopes:**
     - `publicData`
     - `esi-location.read_location.v1` — character location
@@ -155,32 +203,34 @@ SSO login requires an application at [developers.eveonline.com](https://develope
     - `esi-location.read_ship_type.v1` — current ship
     - `esi-ui.write_waypoint.v1` — set autopilot waypoints
 
-Copy the Client ID and Secret into `EVE_CLIENT_ID` / `EVE_CLIENT_SECRET`. Login works without the ESI scopes, but character tracking and autopilot features need them.
+---
 
-## Discord application setup
+## Discord Setup & Auto-Verification
 
-Account linking, slash commands and personal proximity alerts require an application at the [Discord Developer Portal](https://discord.com/developers/applications):
+### With Alliance Auth (Auto-Verification)
+You **do NOT need separate Discord OAuth** for pilots!
+- When pilots link Discord in Alliance Auth (**Services** → **Discord** or `!auth`), Alliance Auth provides their Discord identity directly to Wormhole Systems on login.
+- Wormhole Systems automatically binds and verifies their `DiscordAccount` so they can receive personal map alerts.
+- To enable Discord bot deliveries (DM alerts and mentions) from Wormhole Systems, simply reuse your Alliance Auth bot credentials in Wormhole Systems `.env`:
+  ```env
+  DISCORD_APPLICATION_ID=your_discord_app_id
+  DISCORD_CLIENT_ID=your_discord_app_id
+  DISCORD_CLIENT_SECRET=your_discord_app_secret
+  DISCORD_BOT_TOKEN=your_discord_bot_token
+  ```
 
-1. Create an application and open **OAuth2**. Add `https://wormholesystems.test/discord/callback` as a redirect URL. Use the production domain instead for a production deployment.
-2. Open **Bot**, create or reset the bot token, and keep it secret.
-3. Under **Installation**, enable Guild Install with the `applications.commands` and `bot` scopes. Grant the bot **View Channels**, **Send Messages**, and **Embed Links** permissions for channel alerts.
-4. Install the application in the Discord servers where commands should be available.
-
-Channel alerts can optionally use Discord's native role picker. The selected role must be marked **Mentionable** in the server for the bot to notify its members. Granting the bot **Mention Everyone** also permits non-mentionable role pings, but is not recommended.
-
-Map managers configure alert rules, bot-managed alert oversight, delivery destinations, and role mentions on the map's **Discord settings** page at `/maps/{map}/settings/discord`. Delivery destinations may use Discord channel webhook URLs; these webhooks remain one delivery type within the broader Discord configuration.
-
-Configure the application credentials in `.env`:
-
+### Standalone Discord Setup (Without Alliance Auth)
+If running standalone without Alliance Auth, create an application at the [Discord Developer Portal](https://discord.com/developers/applications):
+1. Open **OAuth2**. Add `https://yourdomain.com/discord/callback` as a redirect URL.
+2. Open **Bot**, create the bot token, and keep it secret.
+3. Under **Installation**, enable Guild Install with `applications.commands` and `bot` scopes (View Channels, Send Messages, Embed Links).
+4. Configure in `.env`:
 ```dotenv
-DISCORD_APPLICATION_ID=           # Application ID from General Information
-DISCORD_CLIENT_ID=                # Usually the same value as the Application ID
+DISCORD_APPLICATION_ID=           # Application ID
+DISCORD_CLIENT_ID=                # Application ID
 DISCORD_CLIENT_SECRET=            # OAuth2 client secret
-DISCORD_BOT_TOKEN=                # Token from the Bot page
+DISCORD_BOT_TOKEN=                # Bot token
 DISCORD_CALLBACK="${APP_URL}/discord/callback"
-
-# Optional: use guild-scoped commands for immediate updates during development
-DISCORD_TEST_GUILD_ID=
 ```
 
 Register the commands globally for production:
