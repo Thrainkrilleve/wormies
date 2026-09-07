@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+if [ -z "$SERVER_NAME" ]; then
+    export SERVER_NAME=":80"
+fi
+
 echo "Setting up Laravel storage directories..."
 mkdir -p /app/storage/framework/sessions /app/storage/framework/views /app/storage/framework/cache /app/storage/logs /app/bootstrap/cache
 chown -R www-data:www-data /app/storage /app/bootstrap/cache

@@ -27,7 +27,7 @@ final readonly class zKillboardConnector
             ->retry($this->retry_attempts, $this->retry_delay_ms)
             ->withHeaders([
                 'Accept' => 'application/json',
-                'User-Agent' => config()->string('esi.user_agent'),
+                'User-Agent' => (string) (config('esi.user_agent') ?: 'Wormhole Systems | https://wormhole.systems | contact: admin@localhost'),
             ]);
 
         $result = match ($method) {

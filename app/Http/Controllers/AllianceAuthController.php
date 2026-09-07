@@ -18,6 +18,10 @@ final class AllianceAuthController extends Controller
 {
     public function redirect(Request $request, AllianceAuthService $service): RedirectResponse
     {
+        if (auth()->check() && ! $request->query('add_to_account')) {
+            return to_route('home');
+        }
+
         if ($request->query('add_to_account')) {
             $request->session()->put('add_to_account', auth()->id());
         }
@@ -34,6 +38,11 @@ final class AllianceAuthController extends Controller
         $sessionState = (string) $request->session()->pull('allianceauth_state');
 
         if ($state === '' || $sessionState === '' || ! hash_equals($sessionState, $state)) {
+            Log::warning('Alliance Auth state verification failed', [
+                'has_query_state' => $state !== '',
+                'has_session_state' => $sessionState !== '',
+            ]);
+
             return to_route('login')->withErrors(['auth' => 'Invalid state verification from Alliance Auth. Please try again.']);
         }
 

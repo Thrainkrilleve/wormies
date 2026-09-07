@@ -19,9 +19,11 @@ x-wormholesystems-base: &wormholesystems-base
     APP_NAME: "Wormhole Systems"
     APP_ENV: production
     APP_DEBUG: "false"
-    APP_URL: ${WS_APP_URL:-${PROTOCOL:-https://}wormhole.${DOMAIN}}
+    APP_URL: ${WS_APP_URL:-https://wormhole.${DOMAIN}}
     CONTACT_EMAIL: ${ESI_USER_CONTACT_EMAIL}
     AA_SECRET_KEY: ${AA_SECRET_KEY}
+    SERVER_NAME: ":80"
+    APP_USER_AGENT: "Wormhole Systems | https://wormhole.${DOMAIN} | contact: ${ESI_USER_CONTACT_EMAIL}"
 
     # Database (automatically uses your existing Alliance Auth DB password)
     DB_CONNECTION: mysql
@@ -38,16 +40,16 @@ x-wormholesystems-base: &wormholesystems-base
 
     # Alliance Auth OIDC Single Sign-On
     ALLIANCEAUTH_ENABLED: "true"
-    ALLIANCEAUTH_BASE_URL: "${PROTOCOL:-https://}${AUTH_SUBDOMAIN:-auth}.${DOMAIN}"
+    ALLIANCEAUTH_BASE_URL: "${WS_AUTH_URL:-https://${AUTH_SUBDOMAIN:-auth}.${DOMAIN}}"
     ALLIANCEAUTH_CLIENT_ID: ${WS_CLIENT_ID:-${WS_AUTH_CLIENT_ID}}
     ALLIANCEAUTH_CLIENT_SECRET: ${WS_CLIENT_SECRET:-${WS_AUTH_CLIENT_SECRET}}
-    ALLIANCEAUTH_CALLBACK: "${WS_APP_URL:-${PROTOCOL:-https://}wormhole.${DOMAIN}}/auth/allianceauth/callback"
+    ALLIANCEAUTH_CALLBACK: "${WS_APP_URL:-https://wormhole.${DOMAIN}}/auth/allianceauth/callback"
     ALLIANCEAUTH_ONLY: "true"
 
     # Shared CCP Developer Application Credentials (reusing Alliance Auth's)
     EVE_CLIENT_ID: ${ESI_SSO_CLIENT_ID}
     EVE_CLIENT_SECRET: ${ESI_SSO_CLIENT_SECRET}
-    EVE_CALLBACK: "${WS_APP_URL:-${PROTOCOL:-https://}wormhole.${DOMAIN}}/eve/callback"
+    EVE_CALLBACK: "${WS_APP_URL:-https://wormhole.${DOMAIN}}/eve/callback"
 
     # Real-time Map WebSockets (automatically derived from AA_SECRET_KEY)
     REVERB_APP_ID: wormholesystems
