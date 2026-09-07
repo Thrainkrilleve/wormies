@@ -8,15 +8,82 @@
 
 Wormhole mapping and tracking for EVE Online — live at [wormhole.systems](https://wormhole.systems). Real-time chain maps, signatures, character tracking and killmail intel, built with Laravel 12, Inertia.js, Vue 3 and Tailwind CSS.
 
-## Self-hosting
+### Key Features & Alliance Auth Integration
 
-To run your own instance you don't need this repository directly — use the [container stack](https://github.com/WormholeSystems/wormholesystems-containers) with its interactive setup wizard:
+- **Alliance Auth Single Sign-On (SSO):** Seamless pilot authentication through Alliance Auth's OpenID Connect (OIDC) provider.
+- **Shared EVE Developer Application:** No need to create a second app on the CCP Developer Portal; shares Alliance Auth's existing EVE credentials.
+- **Enforced ESI Scopes:** Automatically syncs and checks the 5 required location and waypoint tracking scopes directly through Alliance Auth.
+- **Discord Auto-Verification:** When pilots link Discord in Alliance Auth, their Discord account is automatically linked and verified in Wormhole Systems without a separate Discord OAuth prompt.
+- **Alliance Auth Sidebar Plugin:** Includes [`allianceauth-wormholesystems/`](allianceauth-wormholesystems/) for 1-click launch from the Alliance Auth sidebar.
+- **Dynamic Reverb WebSockets:** Real-time map synchronization with runtime WebSocket configuration that adapts automatically to localhost and Cloudflare Tunnels (WSS/443).
 
+## Self-hosting & Deployment
+
+### 1. Cloudflare Tunnels & Docker Stack (Recommended)
+This repository includes a production-ready container stack for hosting on a home server or VPS behind Cloudflare Tunnels:
+- **[docker-compose.cloudflare.yml](docker-compose.cloudflare.yml)**: Pre-configured for FrankenPHP, MariaDB, Redis, queue workers, killmail listener, and Reverb WebSockets.
+- **[docs/cloudflare-tunnel-setup.md](docs/cloudflare-tunnel-setup.md)**: Step-by-step setup guide for domains, Cloudflare Tunnel ingress rules, and environment variables.
+
+### 2. Standard Upstream Installer
+To run an upstream standalone instance without Alliance Auth:
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://install.wormhole.systems | sh
 ```
 
-The rest of this README is about developing the application itself.
+---
+
+## Alliance Auth Integration Setup
+
+### 1. Configure Alliance Auth Plugin
+In your Alliance Auth environment:
+```bash
+pip install -e ./allianceauth-wormholesystems
+```
+Add to your `local.py`:
+```python
+INSTALLED_APPS += [
+    'allianceauth_wormholesystems',
+]
+
+WORMHOLESYSTEMS_URL = "https://wormhole.yourdomain.com"
+```
+Ensure `LOGIN_TOKEN_SCOPES` in `local.py` includes the required tracking scopes:
+```python
+LOGIN_TOKEN_SCOPES = [
+    'publicData',
+    'esi-location.read_location.v1',
+    'esi-location.read_ship_type.v1',
+    'esi-location.read_online.v1',
+    'esi-ui.write_waypoint.v1',
+]
+```
+
+### 2. Create the OIDC Application in Alliance Auth
+In Alliance Auth Admin (`/admin/`):
+- Go to **AllianceAuth OIDC** > **Applications** > **Add Application**.
+- **Client Type:** `Confidential`
+- **Authorization Grant Type:** `Authorization code`
+- **Redirect URIs:** `https://wormhole.yourdomain.com/auth/allianceauth/callback`
+- **Algorithm:** `RS256`
+- **Skip Authorization:** `True` (recommended for seamless SSO)
+
+### 3. Configure Wormhole Systems `.env`
+In your Wormhole Systems `.env`:
+```env
+# Alliance Auth OIDC
+ALLIANCEAUTH_ENABLED=true
+ALLIANCEAUTH_BASE_URL="https://auth.yourdomain.com"
+ALLIANCEAUTH_CLIENT_ID=your_client_id
+ALLIANCEAUTH_CLIENT_SECRET=your_client_secret
+ALLIANCEAUTH_CALLBACK="https://wormhole.yourdomain.com/auth/allianceauth/callback"
+ALLIANCEAUTH_ONLY=true
+
+# Shared CCP Developer Application credentials (from Alliance Auth)
+EVE_CLIENT_ID=your_allianceauth_eve_client_id
+EVE_CLIENT_SECRET=your_allianceauth_eve_client_secret
+```
+
+---
 
 ## Development setup
 
