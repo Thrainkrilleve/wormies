@@ -10,8 +10,6 @@ use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Session;
-use Throwable;
 
 use function back;
 
@@ -21,9 +19,6 @@ final class ScopeController extends Controller
         #[CurrentUser] private readonly User $user
     ) {}
 
-    /**
-     * @throws Throwable
-     */
     public function index(): RedirectResponse
     {
         return to_route('settings.show', ['section' => 'esi']);
@@ -31,12 +26,16 @@ final class ScopeController extends Controller
 
     public function show(Request $request): RedirectResponse
     {
-        Session::put('redirect_to', route('settings.show', ['section' => 'esi']));
+        // Redirect to Alliance Auth's launch endpoint.
+        // This uses @token_required(scopes=WORMHOLESYSTEMS_SCOPES) which triggers
+        // EVE SSO for any missing ESI scopes, then redirects back to Wormhole Systems.
+        // We cannot request ESI scopes via the OIDC /o/authorize/ flow because
+        // Alliance Auth's OIDC provider only recognises its own registered scopes
+        // (openid/profile/email/groups) and silently strips unknown ESI scope names.
+        $baseUrl = rtrim((string) config('services.allianceauth.base_url', 'https://auth.r3v-w.space'), '/');
+        $launchUrl = $baseUrl . '/wormholesystems/launch/';
 
-        return to_route('eve.show', [
-            'add_to_account' => true,
-            'scopes' => $request->input('scopes'),
-        ]);
+        return redirect()->away($launchUrl);
     }
 
     public function destroy(Character $character): RedirectResponse

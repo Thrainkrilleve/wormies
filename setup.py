@@ -8,7 +8,7 @@ except Exception:
 
 setup(
     name="allianceauth-wormholesystems",
-    version="0.0.5",
+    version="0.0.8",
     author="Wormhole Systems",
     description="Wormhole Systems single sign-on & sidebar app for Alliance Auth",
     long_description=long_description,
