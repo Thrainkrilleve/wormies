@@ -63,6 +63,13 @@ Route::get('eve', fn () => redirect()->route('allianceauth.redirect'))->name('ev
 Route::get('eve/callback', fn () => redirect()->route('allianceauth.redirect'))->name('eve.store');
 Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->name('allianceauth.redirect');
 Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->name('allianceauth.callback');
+Route::get('manifest.webmanifest', function () {
+    $path = public_path('build/manifest.webmanifest');
+    if (file_exists($path)) {
+        return response()->file($path, ['Content-Type' => 'application/manifest+json']);
+    }
+    abort(404);
+});
 
 Route::middleware('auth')->group(function () {
 
