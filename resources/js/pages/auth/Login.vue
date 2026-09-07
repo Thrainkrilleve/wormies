@@ -66,6 +66,7 @@ const currentYear = format(new UTCDate(), 'yyyy');
                     </div>
 
                     <Button
+                        v-if="allianceAuthEnabled"
                         asChild
                         size="lg"
                         class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-md shadow-indigo-600/20"
@@ -76,8 +77,15 @@ const currentYear = format(new UTCDate(), 'yyyy');
                         </a>
                     </Button>
 
+                    <Button asChild size="lg" variant="outline">
+                        <a href="/eve" class="flex items-center justify-center gap-3">
+                            <LockIcon />
+                            Sign in with EVE Online
+                        </a>
+                    </Button>
+
                     <p class="mt-3 text-center font-mono text-[10px] tracking-wider text-muted-foreground/70 uppercase">
-                        ESI-secure · Alliance Auth Single Sign-On · Free to use
+                        ESI-secure · CCP EVE Online SSO · Free to use
                     </p>
                 </div>
             </div>

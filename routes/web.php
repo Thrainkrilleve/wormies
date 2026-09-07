@@ -59,8 +59,20 @@ Route::get('/', [LandingController::class, 'index'])->name('landing')->middlewar
 Route::get('documentation/{path?}', [DocumentationController::class, 'index'])->where('path', '.*')->name('documentation');
 Route::get('login', [LoginController::class, 'show'])->name('login');
 Route::get('auth', [AuthController::class, 'show'])->name('auth');
-Route::get('eve', fn (\Illuminate\Http\Request $request) => redirect()->route('allianceauth.redirect', $request->query()))->name('eve.show');
-Route::get('eve/callback', fn (\Illuminate\Http\Request $request) => redirect()->route('allianceauth.redirect', $request->query()))->name('eve.store');
+// Adding a character/scopes to an existing account must stay on Alliance Auth
+// when it's configured, so that account's ESI tokens stay tracked there and
+// don't drift out of sync with what AA itself knows about (see
+// AllianceAuthService::syncUserEsiTokens()). A fresh, unauthenticated login
+// has no existing AA-linked account to keep in sync, so it goes straight to
+// EveController's native EVE SSO instead - no Alliance Auth account required.
+Route::get('eve', function (\Illuminate\Http\Request $request, EveController $controller) {
+    if ($request->query('add_to_account') && config('services.allianceauth.enabled')) {
+        return redirect()->route('allianceauth.redirect', $request->query());
+    }
+
+    return $controller->show($request);
+})->name('eve.show');
+Route::get('eve/callback', [EveController::class, 'store'])->name('eve.store');
 Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->name('allianceauth.redirect');
 Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->name('allianceauth.callback');
 Route::get('manifest.webmanifest', function () {
