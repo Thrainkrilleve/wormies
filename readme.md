@@ -64,6 +64,7 @@ In your Alliance Auth setup (e.g. `aa-docker`):
    - **Algorithm:** `RS256`
    - **Skip Authorization:** `True` (recommended for seamless SSO)
 4. Click **Save** and note the generated **Client ID** and **Client Secret**.
+5. **Grant OIDC Permission:** In Alliance Auth Admin &rarr; **Authentication and Authorization** &rarr; **States** (or **Groups**), grant the permission **`allianceauth_oidc | alliance auth application | Can access OpenID Connect`** to your Member state/group so pilots can authenticate.
 
 ---
 
