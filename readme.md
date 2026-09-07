@@ -83,7 +83,12 @@ WS_CLIENT_SECRET=your_client_secret_from_step_2
 
 ### Step 4: Add Services to your `docker-compose.yml`
 
-Copy the service block from [**`docker-compose.allianceauth.snippet.yml`**](docker-compose.allianceauth.snippet.yml) directly into your Alliance Auth `docker-compose.yml`.
+In your existing Alliance Auth `docker-compose.yml`:
+1. Paste `x-wormholesystems-base:` at the top of the file (above `services:`).
+2. Paste the `wormholesystems_*` services directly inside your existing `services:` block (do **not** add a second `services:` header!).
+3. Add `ws-mysql-data:` and `ws-laravel-storage:` under your existing `volumes:` block.
+
+*(See [**`docker-compose.allianceauth.snippet.yml`**](docker-compose.allianceauth.snippet.yml) for the exact snippet)*
 
 Start the containers:
 ```bash
