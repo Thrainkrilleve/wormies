@@ -1,5 +1,5 @@
 x-app-common: &app-common
-  image: wormhole-systems:production
+  image: ghcr.io/thrainkrilleve/wormies:latest
   build:
     context: .
     dockerfile: docker/Dockerfile

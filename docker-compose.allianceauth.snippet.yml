@@ -8,7 +8,7 @@
 # PART 1: Place this at the top of your docker-compose.yml (above "services:")
 # ------------------------------------------------------------------------------
 x-wormholesystems-base: &wormholesystems-base
-  image: wormhole-systems:production
+  image: ghcr.io/thrainkrilleve/wormies:latest
   env_file:
     - .env
   restart: unless-stopped
