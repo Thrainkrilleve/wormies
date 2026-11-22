@@ -105,7 +105,9 @@ final class MapPolicy
             return false;
         }
 
-        $provided = request()->query('share_token') ?? session("map_share_token_{$map->id}");
+        $provided = request()->headers->get('X-Map-Share-Token')
+            ?? request()->query('share_token')
+            ?? session("map_share_token_{$map->id}");
 
         if (! is_string($provided) || $provided === '') {
             return false;

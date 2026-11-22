@@ -94,7 +94,9 @@ final class MapController extends Controller
     {
         $map = Map::query()->where('share_token', $token)->firstOrFail();
 
-        return redirect()->route('maps.show', ['map' => $map, 'share_token' => $token]);
+        session()->put("map_share_token_{$map->id}", $token);
+
+        return redirect()->route('maps.show', $map);
     }
 
     /**
