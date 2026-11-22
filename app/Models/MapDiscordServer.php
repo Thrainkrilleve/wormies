@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $guild_name
  * @property string $status
  * @property CarbonImmutable|null $pending_expires_at
+ * @property string|null $pending_state_hash
  * @property int $unmatched_count
  * @property-read Map $map
  */
@@ -39,6 +40,15 @@ final class MapDiscordServer extends Model
         return $this->status === self::Pending
             && $this->pending_expires_at instanceof CarbonImmutable
             && $this->pending_expires_at->isFuture();
+    }
+
+    public function accessState(): string
+    {
+        if ($this->status === self::Pending) {
+            return $this->isPending() ? 'pending' : 'expired';
+        }
+
+        return $this->status;
     }
 
     /** @return array<string, string> */

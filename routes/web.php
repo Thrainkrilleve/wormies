@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('discord', [DiscordAccountController::class, 'destroy'])->name('discord.destroy');
     Route::get('discord-access/link', [DiscordAccessController::class, 'link'])->middleware('signed')->name('discord-access.link');
     Route::post('discord-access/link', [DiscordAccessController::class, 'confirmLink'])->name('discord-access.link.store');
+    Route::get('discord-access/callback', [DiscordAccessController::class, 'callback'])->name('discord-access.callback');
 
     Route::get('maps/{map}/ping', [PingController::class, 'show'])->name('maps.ping');
     Route::resource('maps', MapController::class)->except(['show', 'create'])->names([

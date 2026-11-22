@@ -30,18 +30,83 @@ final class DiscordAccessBot
         return is_string($id) && $id !== '' ? $id : null;
     }
 
-    public function inviteUrl(): string
+    public function oauthConfigured(): bool
+    {
+        if (! $this->configured() || $this->clientSecret() === null) {
+            return false;
+        }
+
+        try {
+            $this->redirectUri();
+        } catch (DiscordConfigurationException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function inviteUrl(string $state): string
     {
         $applicationId = $this->applicationId();
         if ($applicationId === null) {
             throw new DiscordConfigurationException('DISCORD_ACCESS_APPLICATION_ID is not configured.');
         }
+        if ($state === '' || mb_strlen($state) > 128) {
+            throw new DiscordConfigurationException('The Discord invite state is invalid.');
+        }
 
         return 'https://discord.com/api/oauth2/authorize?'.http_build_query([
             'client_id' => $applicationId,
             'permissions' => '0',
+            'integration_type' => '0',
             'scope' => 'bot applications.commands',
+            'response_type' => 'code',
+            'redirect_uri' => $this->redirectUri(),
+            'state' => $state,
         ], '', '&', PHP_QUERY_RFC3986);
+    }
+
+    /**
+     * Exchange an authorization code. The guild id comes from Discord's token
+     * response. A guild_id on the redirect is ignored by the caller.
+     */
+    public function exchangeBotAuthorization(string $code): DiscordAccessAuthorization
+    {
+        $applicationId = $this->applicationId();
+        $secret = $this->clientSecret();
+        if ($applicationId === null || $secret === null) {
+            throw new DiscordConfigurationException('The access bot OAuth client is not configured.');
+        }
+        if ($code === '' || mb_strlen($code) > 2048) {
+            throw new DiscordAccessAuthorizationException('Discord did not confirm that authorization.');
+        }
+
+        $response = Http::asForm()
+            ->acceptJson()
+            ->withoutRedirecting()
+            ->timeout(10)
+            ->post('https://discord.com/api/v10/oauth2/token', [
+                'client_id' => $applicationId,
+                'client_secret' => $secret,
+                'grant_type' => 'authorization_code',
+                'code' => $code,
+                'redirect_uri' => $this->redirectUri(),
+            ]);
+
+        if (! $response->successful()) {
+            throw new DiscordAccessAuthorizationException('Discord did not confirm that authorization.');
+        }
+
+        $guild = $response->json('guild');
+        $id = is_array($guild) ? ($guild['id'] ?? null) : null;
+        if (is_int($id)) {
+            $id = (string) $id;
+        }
+        if (! is_string($id) || preg_match('/^\d{1,20}$/', $id) !== 1) {
+            throw new DiscordAccessAuthorizationException('Discord did not confirm a server for that authorization.');
+        }
+
+        return new DiscordAccessAuthorization($id);
     }
 
     /**
@@ -133,6 +198,20 @@ final class DiscordAccessBot
         ]])->throw();
     }
 
+    public function redirectUri(): string
+    {
+        $configured = config('services.discord.access_redirect');
+        $uri = is_string($configured) && $configured !== '' ? $configured : route('discord-access.callback');
+        $scheme = parse_url($uri, PHP_URL_SCHEME);
+        $host = parse_url($uri, PHP_URL_HOST);
+        $user = parse_url($uri, PHP_URL_USER);
+        if (! is_string($scheme) || ! in_array(mb_strtolower($scheme), ['https', 'http'], true) || ! is_string($host) || $host === '' || is_string($user)) {
+            throw new DiscordConfigurationException('DISCORD_ACCESS_REDIRECT_URI must be an absolute http(s) URL.');
+        }
+
+        return $uri;
+    }
+
     private function request(): PendingRequest
     {
         $token = $this->token();
@@ -150,6 +229,13 @@ final class DiscordAccessBot
                 false,
             )
             ->timeout(10);
+    }
+
+    private function clientSecret(): ?string
+    {
+        $secret = config('services.discord.access_client_secret');
+
+        return is_string($secret) && $secret !== '' ? $secret : null;
     }
 
     private function token(): ?string
