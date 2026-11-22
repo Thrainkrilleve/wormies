@@ -10,13 +10,16 @@ use App\Policies\PersonalAccessTokenPolicy;
 use App\Services\EsiNameResolver;
 use App\Services\NameResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Event as ScheduledEvent;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -46,6 +49,7 @@ final class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
 
         $this->registerNotificationMacro();
+        $this->registerRateLimiters();
 
         Model::shouldBeStrict();
         Model::unguard();
@@ -70,6 +74,15 @@ final class AppServiceProvider extends ServiceProvider
         $this->reloads('discord:restart', 'discord');
 
         $this->registerScheduleMacros();
+    }
+
+    private function registerRateLimiters(): void
+    {
+        RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(20)->by((string) $request->ip()));
+
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by(
+            $request->user() !== null ? (string) $request->user()->getAuthIdentifier() : (string) $request->ip()
+        ));
     }
 
     private function registerNotificationMacro(): void

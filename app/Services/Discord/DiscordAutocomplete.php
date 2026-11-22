@@ -19,7 +19,7 @@ final class DiscordAutocomplete
         return Map::query()
             ->whereHas('mapAccessors', function (Builder $query) use ($account): void {
                 assert($query instanceof MapAccessBuilder);
-                $query->notExpired()->whereIn('accessible_id', $account->user->getAccessibleIds());
+                $query->notExpired()->grantedTo($account->user);
             })
             ->when($search !== '', fn ($query) => $query->where('name', 'like', '%'.$search.'%'))
             ->orderBy('name')

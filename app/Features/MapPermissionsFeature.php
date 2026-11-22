@@ -42,15 +42,9 @@ final readonly class MapPermissionsFeature implements ProvidesInertiaProperties
             return false;
         }
 
-        $accessibleIds = array_filter([
-            $activeCharacter->id,
-            $activeCharacter->corporation_id,
-            $activeCharacter->alliance_id,
-        ]);
-
         return $this->map->mapAccessors()
             ->notExpired()
-            ->whereIn('accessible_id', $accessibleIds)
+            ->forCharacter($activeCharacter)
             ->exists();
     }
 }

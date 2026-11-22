@@ -8,6 +8,7 @@ use App\Models\Map;
 use App\Models\User;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 final class PingController extends Controller
 {
@@ -15,6 +16,8 @@ final class PingController extends Controller
 
     public function show(Map $map): JsonResponse
     {
+        Gate::authorize('view', $map);
+
         $this->user->touch('last_active_at');
 
         return response()->json([

@@ -21,7 +21,7 @@ services:
     <<: *app-common
     container_name: wormholesystems-app
     ports:
-      - "${APP_PORT:-8090}:80"
+      - "127.0.0.1:${APP_PORT:-8090}:80"
     volumes:
       - laravel-storage:/app/storage
     environment:
@@ -42,7 +42,7 @@ services:
     <<: *app-common
     container_name: wormholesystems-reverb
     ports:
-      - "${REVERB_PUBLISH_PORT:-8091}:8080"
+      - "127.0.0.1:${REVERB_PUBLISH_PORT:-8091}:8080"
     environment:
       WORMHOLES_ROLE: reverb
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
@@ -100,9 +100,9 @@ services:
       replicas: 2
     environment:
       WORMHOLES_ROLE: queue
-    # timeout must stay below DB_QUEUE_RETRY_AFTER (90). memory and max-jobs
-    # recycle the process before the 8G PHP ceiling becomes the host's problem.
-    command: php artisan queue:work --sleep=3 --tries=3 --timeout=60 --memory=256 --max-time=3600 --max-jobs=1000
+    # timeout must stay below retry_after (90) on both the database and redis drivers.
+    # tracking is consumed before default so killmail jobs cannot stall location updates.
+    command: php artisan queue:work --queue=tracking,default --sleep=3 --tries=3 --timeout=60 --memory=256 --max-time=3600 --max-jobs=1000
     depends_on:
       app:
         condition: service_healthy

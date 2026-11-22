@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * An alert that delivers to a webhook or Discord when a target system comes
@@ -186,6 +187,16 @@ final class MapAlert extends Model
     public function events(): HasMany
     {
         return $this->hasMany(MapAlertEvent::class);
+    }
+
+    protected static function booted(): void
+    {
+        $forget = static function (): void {
+            Cache::forget('killmail-alerts:active');
+        };
+
+        self::saved($forget);
+        self::deleted($forget);
     }
 
     /**

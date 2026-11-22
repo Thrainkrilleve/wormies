@@ -102,14 +102,19 @@ final class MapController extends Controller
      */
     public function index(Request $request): Response
     {
+        $user = $this->user;
+
+        if (! $user instanceof User) {
+            abort(403);
+        }
+
         $search = $request->string('search');
-        $accessibleIds = $this->user->getAccessibleIds();
 
         return Inertia::render('maps/ShowAllMaps', [
             'maps' => Map::query()
-                ->whereHas('mapAccessors', function (Builder $builder) use ($accessibleIds): void {
+                ->whereHas('mapAccessors', function (Builder $builder) use ($user): void {
                     assert($builder instanceof MapAccessBuilder);
-                    $builder->notExpired()->whereIn('accessible_id', $accessibleIds);
+                    $builder->notExpired()->grantedTo($user);
                 })
                 ->when($search->isNotEmpty(), fn (Builder $query) => $query->whereLike('name', sprintf('%%%s%%', $search)))
                 ->withCount([
@@ -118,7 +123,7 @@ final class MapController extends Controller
                 ])
                 ->with([
                     'mapUserSetting',
-                    'mapAccessors' => fn ($builder) => $builder->notExpired()->whereIn('accessible_id', $accessibleIds),
+                    'mapAccessors' => fn ($builder) => $builder->notExpired()->grantedTo($user),
                 ])
                 ->get()
                 ->toResourceCollection(MapCardResource::class),

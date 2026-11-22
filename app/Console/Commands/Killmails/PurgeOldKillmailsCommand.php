@@ -11,31 +11,37 @@ use Illuminate\Container\Attributes\Config;
 final class PurgeOldKillmailsCommand extends AppCommand
 {
     /**
-     * The name and signature of the console command.
-     *
      * @var string
      */
     protected $signature = 'app:purge-old-killmails';
 
     /**
-     * The console command description.
-     *
      * @var string
      */
     protected $description = 'Purge old killmails from the database';
 
-    /**
-     * Execute the console command.
-     */
     public function handle(
         #[Config('services.zkillboard.max_age_days')] int $max_age_days,
     ): int {
-        $deleted = Killmail::query()
-            ->where('time', '<', now()->subDays($max_age_days))
-            ->delete();
+        $cutoff = now()->subDays($max_age_days);
+        $total = 0;
 
-        $this->info("Deleted $deleted killmails older than $max_age_days days.");
+        do {
+            $ids = Killmail::query()
+                ->where('time', '<', $cutoff)
+                ->orderBy('id')
+                ->limit(500)
+                ->pluck('id');
 
-        return 0;
+            if ($ids->isEmpty()) {
+                break;
+            }
+
+            $total += Killmail::query()->whereIn('id', $ids)->delete();
+        } while ($ids->count() === 500);
+
+        $this->info("Deleted {$total} killmails older than {$max_age_days} days.");
+
+        return self::SUCCESS;
     }
 }

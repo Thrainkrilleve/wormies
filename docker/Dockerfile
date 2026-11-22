@@ -62,7 +62,7 @@ ENV VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY} \
 RUN php artisan wayfinder:generate
 RUN npm install
 RUN php artisan sde:download
-RUN php artisan generate:static-data
+RUN php -d memory_limit=1G artisan generate:static-data
 RUN npm run build
 
 # ---

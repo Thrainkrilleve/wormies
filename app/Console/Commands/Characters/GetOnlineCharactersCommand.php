@@ -9,44 +9,40 @@ use App\Jobs\Characters\DispatchCharacterStatusEvents;
 use App\Jobs\Characters\UpdateCharacterOnlineStatus;
 use App\Models\CharacterStatus;
 use Illuminate\Bus\Batch;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Bus;
 use Throwable;
 
-use function now;
 use function sprintf;
 
 final class GetOnlineCharactersCommand extends AppCommand
 {
     /**
-     * The name and signature of the console command.
-     *
      * @var string
      */
     protected $signature = 'app:get-online-characters';
 
     /**
-     * The console command description.
-     *
      * @var string
      */
     protected $description = 'Checks the online status of characters and updates their status in the database';
 
     /**
-     * Execute the console command.
-     *
      * @throws Throwable
      */
     public function handle(): void
     {
-        $this->markInactiveCharactersAsOffline();
-
         $characters = CharacterStatus::query()
-            ->wasRecentlyActive()
             ->hasRequiredScopes()
+            ->where(function (Builder $query): void {
+                $query->where('is_online', true)
+                    ->orWhere('last_online_at', '>=', now()->subHours(6))
+                    ->orWhereHas('character.user', fn (Builder $user) => $user->where('last_active_at', '>=', now()->subMinutes(30)));
+            })
             ->get();
 
         if ($characters->isEmpty()) {
-            $this->info('No recently active characters to process.');
+            $this->info('No characters to check.');
 
             return;
         }
@@ -58,23 +54,11 @@ final class GetOnlineCharactersCommand extends AppCommand
         $batch = Bus::batch($jobs->all())
             ->name('Update Character Online Status')
             ->finally(function (Batch $batch): void {
-                // Dispatch a job to handle event dispatching after all character updates are complete
                 DispatchCharacterStatusEvents::dispatch();
             })
             ->dispatch();
 
         $this->info(sprintf('Batch dispatched with ID: %s', $batch->id));
         $this->info('Characters will be processed in parallel.');
-    }
-
-    private function markInactiveCharactersAsOffline(): void
-    {
-        CharacterStatus::query()
-            ->isOnline()
-            ->wasNotRecentlyActive()
-            ->update([
-                'is_online' => false,
-                'online_last_checked_at' => now(),
-            ]);
     }
 }

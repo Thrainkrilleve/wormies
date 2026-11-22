@@ -21,6 +21,30 @@ if [ -z "$APP_KEY" ]; then
     fi
 fi
 
+role="${WORMHOLES_ROLE:-}"
+if [ -z "$role" ]; then
+    case "$1" in
+        frankenphp) role=app ;;
+        supercronic) role=scheduler ;;
+        php)
+            case "$3" in
+                reverb:start) role=reverb ;;
+                queue:work) role=queue ;;
+                schedule:work|schedule:run) role=scheduler ;;
+                app:listen-for-killmails) role=killmails ;;
+            esac
+            ;;
+    esac
+fi
+
+case "$role" in
+    reverb|killmails) memory_limit=256M ;;
+    *) memory_limit=512M ;;
+esac
+
+echo "memory_limit=${memory_limit}" > /usr/local/etc/php/conf.d/zz-memory.ini
+echo "PHP memory_limit=${memory_limit} for role ${role:-unknown}"
+
 echo "Waiting for database to be ready..."
 max_retries=30
 count=0

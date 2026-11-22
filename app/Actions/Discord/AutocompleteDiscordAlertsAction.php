@@ -22,7 +22,7 @@ final readonly class AutocompleteDiscordAlertsAction
                 ->where('created_by_user_id', $account->user_id)
                 ->orWhereHas('map.mapAccessors', function (Builder $query) use ($account): void {
                     assert($query instanceof MapAccessBuilder);
-                    $query->notExpired()->whereIn('accessible_id', $account->user->getAccessibleIds());
+                    $query->notExpired()->grantedTo($account->user);
                 }))
             ->with(['map', 'targetSolarsystem:id,name'])
             ->when($search !== '', fn ($query) => $query->where(function ($query) use ($search): void {

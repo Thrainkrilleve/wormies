@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
     {{-- Inline script to detect system dark mode preference and apply it immediately --}}
-    <script>
+    <script nonce="{{ $cspNonce }}">
         (function() {
             const appearance = '{{ $appearance ?? "system" }}';
 
@@ -20,7 +20,7 @@
     </script>
 
     {{-- Reverb WebSocket configuration for Echo --}}
-    <script>
+    <script nonce="{{ $cspNonce }}">
         window.__reverb = {
             key: @json(config('reverb.client.key') ?: 'local_reverb_key_12345'),
             host: @json(config('reverb.client.host') ?: request()->getHost()),
@@ -75,7 +75,7 @@
     <link rel="manifest" href="/build/manifest.webmanifest">
 
     @production
-        <script>
+        <script nonce="{{ $cspNonce }}">
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
             }

@@ -33,7 +33,12 @@ x-wormholesystems-base: &wormholesystems-base
     DB_USERNAME: wormholesystems
     DB_PASSWORD: ${WS_DB_PASSWORD:-${AA_DB_PASSWORD}}
 
-    # Redis Cache (connects to existing redis in stack)
+    # Redis is the cache and the queue. An existing database queue is not moved
+    # when QUEUE_CONNECTION changes. Drain it before recreating the workers:
+    #   php artisan queue:work database --stop-when-empty
+    # Confirm the jobs table is empty, then recreate the containers.
+    CACHE_STORE: redis
+    QUEUE_CONNECTION: redis
     REDIS_CLIENT: phpredis
     REDIS_HOST: redis
     REDIS_PORT: 6379
@@ -129,7 +134,7 @@ x-wormholesystems-base: &wormholesystems-base
     # Worker health comes from the image (docker/healthcheck.sh), not the
     # Caddy admin port. Do not add a compose healthcheck unless it checks
     # this process.
-    command: php artisan queue:work --sleep=3 --tries=3 --timeout=60 --memory=256 --max-time=3600 --max-jobs=1000
+    command: php artisan queue:work --queue=tracking,default --sleep=3 --tries=3 --timeout=60 --memory=256 --max-time=3600 --max-jobs=1000
     depends_on:
       wormholesystems_app:
         condition: service_healthy

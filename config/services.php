@@ -37,10 +37,8 @@ return [
         ],
     ],
     'zkillboard' => [
-        'identifier' => env('ZKILLBOARD_IDENTIFIER', 'nbrvecs7654vb68mnbv'),
-
-        // Killmails older than this are skipped during ingestion.
-        'max_age_days' => env('ZKILLBOARD_MAX_AGE_DAYS', 2 * 365),
+        // Killmails older than this are skipped on ingest and removed by the purge command.
+        'max_age_days' => (int) env('ZKILLBOARD_MAX_AGE_DAYS', 3),
 
         // Base URL for the R2Z2 ephemeral killmail stream.
         'r2z2_base_url' => env('ZKILLBOARD_R2Z2_BASE_URL', 'https://r2z2.zkillboard.com'),

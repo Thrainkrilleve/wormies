@@ -10,6 +10,7 @@ use App\Jobs\Characters\UpdateCharacterLocation;
 use App\Models\CharacterStatus;
 use Illuminate\Bus\Batch;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 use function sprintf;
@@ -42,11 +43,20 @@ final class GetOnlineCharacterLocationsCommand extends AppCommand
             ->hasRequiredScopes()
             ->get();
 
-        CharacterStatus::query()
+        $dropped = CharacterStatus::query()
             ->doesntHaveRequiredScopes()
+            ->where('is_online', true)
             ->update([
                 'is_online' => false,
+                'event_queued_at' => now(),
             ]);
+
+        if ($dropped > 0) {
+            Log::warning('Marked characters offline because their tracking scopes are gone', [
+                'count' => $dropped,
+            ]);
+            DispatchCharacterStatusEvents::dispatch();
+        }
 
         if ($characters->isEmpty()) {
             $this->info('No online characters to process.');

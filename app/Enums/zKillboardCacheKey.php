@@ -7,4 +7,5 @@ namespace App\Enums;
 enum zKillboardCacheKey: string
 {
     case Restart = 'zkillboard:r2z2:restart';
+    case Sequence = 'zkillboard:r2z2:sequence';
 }

@@ -3,10 +3,12 @@ import { TMap } from '@/pages/maps';
 import { useFetch, useIntervalFn } from '@vueuse/core';
 import { MaybeRefOrGetter, toValue } from 'vue';
 
-const PING_INTERVAL_SECONDS = 60 * 5 * 1000;
+const PING_INTERVAL_MS = 60 * 1000;
 
 /**
- * Ping the server every 5 minutes to keep the server aware of the active map/user.
+ * Ping the server every minute so a map left open still counts as activity.
+ * Background tabs throttle timers, so online tracking does not depend on this
+ * ping alone.
  */
 export function usePing(map: MaybeRefOrGetter<TMap>) {
     // Explicit Accept header so Laravel recognizes this as an API-style
@@ -23,7 +25,7 @@ export function usePing(map: MaybeRefOrGetter<TMap>) {
         { headers: { Accept: 'application/json' } },
         { immediate: false },
     );
-    useIntervalFn(execute, PING_INTERVAL_SECONDS, {
+    useIntervalFn(execute, PING_INTERVAL_MS, {
         immediateCallback: true,
     });
 }
