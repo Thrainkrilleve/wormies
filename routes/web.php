@@ -99,8 +99,9 @@ Route::middleware('auth')->group(function () {
     Route::get('discord/link/{token}', [DiscordAccountController::class, 'link'])->name('discord.link');
     Route::post('discord/link', [DiscordAccountController::class, 'confirmLink'])->name('discord.link.confirm');
     Route::delete('discord', [DiscordAccountController::class, 'destroy'])->name('discord.destroy');
-    Route::get('discord-access/link', [DiscordAccessController::class, 'link'])->middleware('signed')->name('discord-access.link');
+    Route::get('discord-access/link', [DiscordAccessController::class, 'link'])->name('discord-access.link');
     Route::post('discord-access/link', [DiscordAccessController::class, 'confirmLink'])->name('discord-access.link.store');
+    Route::get('discord-access/linked', [DiscordAccessController::class, 'linked'])->name('discord-access.linked');
     Route::get('discord-access/callback', [DiscordAccessController::class, 'callback'])->name('discord-access.callback');
 
     Route::get('maps/{map}/ping', [PingController::class, 'show'])->name('maps.ping');

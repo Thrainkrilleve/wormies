@@ -43,7 +43,7 @@ A manager cannot type a guild id.
 
 ## How members are matched
 
-Alliance Auth login already stores the Discord user id from the OIDC `discord` claim. Everyone else runs `/link` once in the external server, opens the signed link while signed in here, and confirms. The link expires in 10 minutes, works once, and requires the session CSRF token. The Discord user id comes from the interaction, not from a nickname.
+Alliance Auth login already stores the Discord user id from the OIDC `discord` claim. Everyone else runs `/link` once in the external server, opens the signed link while signed in here, and confirms on the link page. That page shows the signed-in user and active character. The link expires in 10 minutes, works once, and requires the session CSRF token. An expired, invalid, or already-used link stays on that page with an explanation. A Discord account already linked to someone else tells you to sign in as that user or run `/unlink`. The Discord user id comes from the interaction, not from a nickname.
 
 `/unlink` removes only the invoking user's link. It deletes that `discord_accounts` row, including the stored username and avatar, deletes their derived grants on every map, and drops any unused `/link` codes for that Discord user. The reply is ephemeral: a confirmation, or that they are not linked. The audit row uses reason `unlink` and keeps the user id. It does not store the username. After `/unlink` the user is gone from the roster. There is no way to unlink someone else.
 
@@ -55,4 +55,4 @@ The OAuth user token from the code exchange is discarded. Membership uses the bo
 
 ## Release
 
-Package version `0.0.18` is the Alliance Auth plugin version for this change. Tag `v0.0.18` only after this is merged, as described in `docs/RELEASING.md`.
+Package version `0.0.19` is the Alliance Auth plugin version for this change. Tag `v0.0.19` only after this is merged, as described in `docs/RELEASING.md`.

@@ -58,7 +58,7 @@ function discordAccessOwner(Map $map): void
 it('rejects an expired or reused discord link and binds a signed one once', function () {
     config()->set('services.discord.access_bot_token', 'test-token');
     config()->set('services.discord.access_application_id', '100000000000000001');
-    $user = User::factory()->has(Character::factory())->create();
+    $user = User::factory()->has(Character::factory())->create()->fresh();
     $url = app(CreateDiscordAccessLink::class)->url('123456789012345678', 'pilot');
 
     actingAs($user)->get($url)->assertOk();
@@ -77,7 +77,7 @@ it('rejects an expired or reused discord link and binds a signed one once', func
 it('does not bind a discord id that already belongs to someone else', function () {
     $owner = User::factory()->create();
     DiscordAccount::factory()->for($owner)->create(['discord_user_id' => '223456789012345678']);
-    $user = User::factory()->has(Character::factory())->create();
+    $user = User::factory()->has(Character::factory())->create()->fresh();
     $url = app(CreateDiscordAccessLink::class)->url('223456789012345678', 'pilot');
 
     actingAs($user)->post($url)->assertStatus(409);
