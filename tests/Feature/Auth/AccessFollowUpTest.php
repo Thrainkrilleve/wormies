@@ -100,6 +100,19 @@ it('requires an ability when a person creates a token', function () {
     expect($user->tokens()->first()->abilities)->toBe(['maps:read']);
 });
 
+it('refuses file sessions in production and disables native upload progress', function () {
+    expect(fn () => App\Providers\AppServiceProvider::guardSessionDriver('file', 'production'))
+        ->toThrow(RuntimeException::class);
+
+    App\Providers\AppServiceProvider::guardSessionDriver('database', 'production');
+    App\Providers\AppServiceProvider::guardSessionDriver('redis', 'production');
+    App\Providers\AppServiceProvider::guardSessionDriver('file', 'local');
+
+    expect(file_get_contents(base_path('.env.example')))->toContain('SESSION_DRIVER=database')
+        ->and(file_get_contents(base_path('docker-compose.allianceauth.snippet.yml')))->toContain('SESSION_DRIVER: database')
+        ->and(file_get_contents(base_path('docker/php.ini')))->toContain('session.upload_progress.enabled = Off');
+});
+
 it('ignores forwarded client addresses that do not come from a trusted proxy', function () {
     TrustProxies::at(['10.0.0.0/8']);
 

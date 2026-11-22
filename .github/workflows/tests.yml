@@ -39,8 +39,11 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.4.28'
           coverage: none
+
+      - name: Require patched PHP
+        run: sh docker/require-php-version.sh 8.4.28
 
       - name: Cache Composer packages
         uses: actions/cache@v4
@@ -83,8 +86,11 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.4.28'
           coverage: none
+
+      - name: Require patched PHP
+        run: sh docker/require-php-version.sh 8.4.28
 
       - name: Cache Composer packages
         uses: actions/cache@v4
@@ -154,8 +160,11 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.4.28'
           coverage: none
+
+      - name: Require patched PHP
+        run: sh docker/require-php-version.sh 8.4.28
 
       - name: Cache Composer packages
         uses: actions/cache@v4

@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
+use RuntimeException;
 use SocialiteProviders\Discord\Provider as DiscordProvider;
 use SocialiteProviders\Eveonline\Provider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
@@ -34,6 +35,13 @@ use function Laravel\Prompts\info;
 
 final class AppServiceProvider extends ServiceProvider
 {
+    public static function guardSessionDriver(string $driver, string $environment): void
+    {
+        if ($environment === 'production' && $driver === 'file') {
+            throw new RuntimeException('SESSION_DRIVER=file is not allowed. Use database or redis.');
+        }
+    }
+
     /**
      * Register any application services.
      */
@@ -72,6 +80,8 @@ final class AppServiceProvider extends ServiceProvider
         });
 
         Gate::policy(PersonalAccessToken::class, PersonalAccessTokenPolicy::class);
+
+        self::guardSessionDriver((string) config('session.driver'), (string) $this->app->environment());
 
         $this->reloads('app:restart-killmail-listener', 'killmails');
         $this->reloads('discord:restart', 'discord');
