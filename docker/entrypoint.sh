@@ -34,8 +34,15 @@ until php -r 'try { $dsn = "mysql:host=" . getenv("DB_HOST") . ";port=" . (geten
 	sleep 2
 done
 
-echo "Running Laravel migrations..."
-php artisan migrate --force
+# Only the web process migrates. Workers, Reverb, and the scheduler share this
+# entrypoint; running migrate --force in all of them races on the migrations
+# table and a single failure exits the container (set -e) into a restart loop.
+if [ "$1" = "frankenphp" ]; then
+    echo "Running Laravel migrations..."
+    php artisan migrate --force
+else
+    echo "Skipping migrations; only the web process migrates."
+fi
 
 echo "Clearing and caching Laravel configurations..."
 php artisan optimize:clear

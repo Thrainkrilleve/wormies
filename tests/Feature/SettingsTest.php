@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Inertia\Testing\AssertableInertia as Assert;
 
 it('renders the consolidated account settings dashboard', function () {
-    config()->set('services.discord.application_id', '1529157346406826054');
+    config()->set('services.discord.application_id', '100000000000000001');
     $user = User::factory()->create();
     $character = Character::factory()->for($user)->create();
     $user->update(['preferred_character_id' => $character->id]);
@@ -25,7 +25,7 @@ it('renders the consolidated account settings dashboard', function () {
             ->has('characters', 1)
             ->where('characters.0.is_preferred', true)
             ->where('discordAccount.username', $user->discordAccount->username)
-            ->where('discordInviteUrl', 'https://discord.com/oauth2/authorize?client_id=1529157346406826054&scope=bot%20applications.commands&permissions=19456&integration_type=0')
+            ->where('discordInviteUrl', 'https://discord.com/oauth2/authorize?client_id=100000000000000001&scope=bot%20applications.commands&permissions=19456&integration_type=0')
             ->has('discordAlerts', 0)
             ->has('tokens', 1));
 });

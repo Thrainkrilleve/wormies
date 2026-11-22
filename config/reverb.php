@@ -93,4 +93,24 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Public client connection
+    |--------------------------------------------------------------------------
+    |
+    | Browser settings. Read these from config, not env(), because the image
+    | entrypoint runs `php artisan optimize` and cached config does not reload
+    | the environment file. REVERB_HOST / REVERB_PORT elsewhere in this file
+    | are the in-cluster address the app uses to publish events, which is not
+    | the host the browser should open.
+    |
+    */
+
+    'client' => [
+        'key' => env('VITE_REVERB_APP_KEY', env('REVERB_APP_KEY')),
+        'host' => env('VITE_REVERB_HOST'),
+        'port' => env('VITE_REVERB_PORT'),
+        'scheme' => env('VITE_REVERB_SCHEME'),
+    ],
+
 ];

@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 x-app-common: &app-common
   image: ghcr.io/thrainkrilleve/wormies:latest
   build:
@@ -6,6 +12,7 @@ x-app-common: &app-common
   env_file:
     - .env
   restart: unless-stopped
+  logging: *default-logging
   networks:
     - ws-internal
 
@@ -17,11 +24,14 @@ services:
       - "${APP_PORT:-8090}:80"
     volumes:
       - laravel-storage:/app/storage
+    environment:
+      WORMHOLES_ROLE: app
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:80/up"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 120s
     depends_on:
       mysql:
         condition: service_healthy
@@ -32,13 +42,16 @@ services:
     <<: *app-common
     container_name: wormholesystems-reverb
     ports:
-      - "${REVERB_PORT:-8091}:8080"
+      - "${REVERB_PUBLISH_PORT:-8091}:8080"
+    environment:
+      WORMHOLES_ROLE: reverb
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 120s
     depends_on:
       app:
         condition: service_healthy
@@ -61,6 +74,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    logging: *default-logging
     networks:
       - ws-internal
 
@@ -74,6 +88,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    logging: *default-logging
     networks:
       - ws-internal
 
@@ -83,7 +98,11 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    environment:
+      WORMHOLES_ROLE: queue
+    # timeout must stay below DB_QUEUE_RETRY_AFTER (90). memory and max-jobs
+    # recycle the process before the 8G PHP ceiling becomes the host's problem.
+    command: php artisan queue:work --sleep=3 --tries=3 --timeout=60 --memory=256 --max-time=3600 --max-jobs=1000
     depends_on:
       app:
         condition: service_healthy
@@ -91,6 +110,8 @@ services:
   scheduler:
     <<: *app-common
     container_name: wormholesystems-scheduler
+    environment:
+      WORMHOLES_ROLE: scheduler
     command: ["supercronic", "-overlapping", "/etc/supercronic/laravel"]
     depends_on:
       app:
@@ -99,6 +120,8 @@ services:
   killmails:
     <<: *app-common
     container_name: wormholesystems-killmails
+    environment:
+      WORMHOLES_ROLE: killmails
     command: php artisan app:listen-for-killmails
     depends_on:
       app:
