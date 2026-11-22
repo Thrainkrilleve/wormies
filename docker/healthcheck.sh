@@ -5,7 +5,7 @@
 # Only the web process opens the Caddy admin port, so queue, scheduler, and
 # killmail containers that reuse the image stay unhealthy unless compose
 # overrides the check. Set WORMHOLES_ROLE to app, reverb, queue, scheduler,
-# or killmails to skip process detection.
+# killmails, or discord-access to skip process detection.
 set -eu
 
 role="${WORMHOLES_ROLE:-}"
@@ -17,12 +17,14 @@ if [ -z "$role" ]; then
         role=reverb
     elif pgrep -f '[a]rtisan app:listen-for-killmails' >/dev/null 2>&1; then
         role=killmails
+    elif pgrep -f '[a]rtisan discord:access-listen' >/dev/null 2>&1; then
+        role=discord-access
     elif pgrep -f '[s]upercronic' >/dev/null 2>&1; then
         role=scheduler
     elif pgrep -x frankenphp >/dev/null 2>&1 || pgrep -f '[f]rankenphp run' >/dev/null 2>&1; then
         role=app
     else
-        echo "healthcheck: no app, reverb, queue, scheduler, or killmail process" >&2
+        echo "healthcheck: no app, reverb, queue, scheduler, killmail, or discord access process" >&2
         exit 1
     fi
 fi
@@ -42,6 +44,9 @@ case "$role" in
         ;;
     killmails)
         pgrep -f '[a]rtisan app:listen-for-killmails' >/dev/null 2>&1
+        ;;
+    discord-access)
+        pgrep -f '[a]rtisan discord:access-listen' >/dev/null 2>&1
         ;;
     *)
         echo "healthcheck: unknown role: $role" >&2

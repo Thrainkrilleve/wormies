@@ -7,7 +7,7 @@ it('single-sources the alliance auth package version and matches a v tag', funct
     $init = file_get_contents($root.'/allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py');
     preg_match('/^__version__ = "([^"]+)"/m', $init, $match);
 
-    expect($match[1] ?? null)->toBe('0.0.15');
+    expect($match[1] ?? null)->toBe('0.0.16');
 
     foreach (['setup.py', 'allianceauth-wormholesystems/setup.py'] as $setup) {
         $contents = file_get_contents($root.'/'.$setup);
@@ -16,7 +16,7 @@ it('single-sources the alliance auth package version and matches a v tag', funct
     }
 
     $workflow = file_get_contents($root.'/.github/workflows/docker.yml');
-    expect($workflow)->toContain("sh docker/require-package-version.sh")
+    expect($workflow)->toContain('sh docker/require-package-version.sh')
         ->and($workflow)->toContain("startsWith(github.ref, 'refs/tags/v')");
 
     $script = escapeshellarg($root.'/docker/require-package-version.sh');

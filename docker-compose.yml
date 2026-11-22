@@ -127,6 +127,16 @@ services:
       app:
         condition: service_healthy
 
+  discord-access:
+    <<: *app-common
+    container_name: wormholesystems-discord-access
+    environment:
+      WORMHOLES_ROLE: discord-access
+    command: php artisan discord:access-listen
+    depends_on:
+      app:
+        condition: service_healthy
+
 volumes:
   mysql-data:
   laravel-storage:

@@ -29,7 +29,7 @@ final class MapPolicy
             return false;
         }
 
-        return $map->mapAccessors()->notExpired()->grantedTo($user)->exists();
+        return $map->getUserPermission($user) instanceof Permission;
     }
 
     public function viewCharacters(?User $user, Map $map): bool

@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BulkMapConnectionController;
 use App\Http\Controllers\BulkSignatureController;
 use App\Http\Controllers\BulkWaypointController;
+use App\Http\Controllers\DiscordAccessController;
 use App\Http\Controllers\DiscordAccountController;
 use App\Http\Controllers\DocumentationController;
 use App\Http\Controllers\EveController;
@@ -98,6 +99,8 @@ Route::middleware('auth')->group(function () {
     Route::get('discord/link/{token}', [DiscordAccountController::class, 'link'])->name('discord.link');
     Route::post('discord/link', [DiscordAccountController::class, 'confirmLink'])->name('discord.link.confirm');
     Route::delete('discord', [DiscordAccountController::class, 'destroy'])->name('discord.destroy');
+    Route::get('discord-access/link', [DiscordAccessController::class, 'link'])->middleware('signed')->name('discord-access.link');
+    Route::post('discord-access/link', [DiscordAccessController::class, 'confirmLink'])->name('discord-access.link.store');
 
     Route::get('maps/{map}/ping', [PingController::class, 'show'])->name('maps.ping');
     Route::resource('maps', MapController::class)->except(['show', 'create'])->names([
@@ -119,6 +122,8 @@ Route::middleware('auth')->group(function () {
 
         Route::get('access', [MapAccessController::class, 'show'])->name('access.show');
         Route::post('access', [MapAccessController::class, 'store'])->name('access.store');
+        Route::post('access/discord-server', [DiscordAccessController::class, 'store'])->name('access.discord.store');
+        Route::delete('access/discord-server', [DiscordAccessController::class, 'disconnect'])->name('access.discord.destroy');
 
         Route::get('routing', [MapRoutingSettingsController::class, 'show'])->name('routing.show');
 

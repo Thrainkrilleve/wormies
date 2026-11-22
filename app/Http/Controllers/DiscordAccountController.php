@@ -105,7 +105,7 @@ final class DiscordAccountController extends Controller
                 ->each(
                     fn (MapAlert $alert) => $this->lifecycle->disable($alert, $this->user, MapAlertDisabledReason::DiscordAccountDisconnected),
                 );
-            $this->user->discordAccount()->delete();
+            $this->user->discordAccount?->delete();
         });
         session()->forget('pending_discord_link_token');
 

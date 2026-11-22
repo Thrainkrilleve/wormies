@@ -15,6 +15,7 @@ use App\Models\Alliance;
 use App\Models\Corporation;
 use App\Models\Map;
 use App\Models\MapAccess;
+use App\Models\MapDiscordServer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -88,12 +89,20 @@ final class MapAccessController extends Controller
             ->get()
             ->toResourceCollection(MapAccessEntityResource::class);
 
+        $discordServer = MapDiscordServer::query()->where('map_id', $map->id)->first();
+
         return Inertia::render('maps/settings/ShowAccess', [
             'map' => $map->toResource(MapInfoResource::class),
             'entities' => $entities,
             'entitiesWithAccess' => $entitiesWithAccess,
             'search' => $search,
             'permission' => 'manager', // If we reach here, user has manager access (due to gate check)
+            'discordAccess' => [
+                'status' => $discordServer?->status,
+                'guild_name' => $discordServer?->guild_name,
+                'unmatched_count' => $discordServer instanceof MapDiscordServer ? $discordServer->unmatched_count : 0,
+                'invite_url' => session('discord_access_invite_url'),
+            ],
         ]);
     }
 

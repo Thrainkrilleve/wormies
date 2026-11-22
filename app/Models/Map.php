@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Builders\MapAccessBuilder;
 use App\Enums\AliasScheme;
 use App\Enums\MapLayout;
 use App\Enums\Permission;
 use App\Traits\HasSlug;
 use Carbon\CarbonImmutable;
-use Context;
 use Database\Factories\MapFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
-use function sprintf;
 
 /**
  * A player map with solar systems and their connections.
@@ -118,6 +117,23 @@ final class Map extends Model
         return $this->hasMany(MapAccess::class, 'map_id');
     }
 
+    /** @return HasMany<MapDiscordGrant, $this> */
+    public function discordGrants(): HasMany
+    {
+        return $this->hasMany(MapDiscordGrant::class, 'map_id');
+    }
+
+    /** @param Builder<Map> $query */
+    public function scopeWhereAccessibleBy(Builder $query, User $user): Builder
+    {
+        return $query->where(function (Builder $inner) use ($user): void {
+            $inner->whereHas('mapAccessors', function (Builder $builder) use ($user): void {
+                assert($builder instanceof MapAccessBuilder);
+                $builder->notExpired()->grantedTo($user);
+            })->orWhereHas('discordGrants', fn (Builder $grants): Builder => $grants->where('user_id', $user->id));
+        });
+    }
+
     public function mapOwner(): HasOne
     {
         return $this->hasOne(MapAccess::class, 'map_id')
@@ -191,12 +207,19 @@ final class Map extends Model
      */
     public function getUserPermission(User $user): ?Permission
     {
-        return Context::remember(sprintf('map_%d_user_%d_permission', $this->id, $user->id), fn () => $this->mapAccessors()
+        $permission = $this->mapAccessors()
             ->notExpired()
             ->grantedTo($user)
             ->orderByRaw("CASE WHEN permission = 'manager' THEN 1 WHEN permission = 'member' THEN 2 WHEN permission = 'viewer' THEN 3 ELSE 4 END")
-            ->first()?->permission
-        );
+            ->first()?->permission;
+
+        if ($permission instanceof Permission) {
+            return $permission;
+        }
+
+        return $this->discordGrants()->where('user_id', $user->id)->exists()
+            ? Permission::Viewer
+            : null;
     }
 
     /**
