@@ -8,16 +8,21 @@ use App\Models\DiscordAccount;
 use App\Models\MapDiscordAccessAudit;
 use App\Models\MapDiscordGrant;
 use App\Models\MapDiscordServer;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 final class DiscordAccessSync
 {
     public function __construct(private readonly DiscordAccessBot $bot) {}
 
-    public function startInvite(MapDiscordServer $server): MapDiscordServer
+    public function startInvite(MapDiscordServer $server, string $state): MapDiscordServer
     {
         $server->status = MapDiscordServer::Pending;
+        $server->guild_id = null;
+        $server->guild_name = null;
+        $server->unmatched_count = 0;
         $server->pending_expires_at = now()->addMinutes(15);
+        $server->pending_state_hash = DiscordAccessState::hash($state);
         $server->save();
 
         return $server;
@@ -26,35 +31,125 @@ final class DiscordAccessSync
     /**
      * Bind a guild the bot just joined. Only one unexpired invite may be waiting,
      * and a guild the bot is already connected to for another map is left alone.
+     * Guilds the bot already knew are not passed here.
      */
     public function bindNewGuild(string $guildId): bool
     {
-        if (MapDiscordServer::query()->where('guild_id', $guildId)->where('status', MapDiscordServer::Active)->exists()) {
+        if (preg_match('/^\d{1,20}$/', $guildId) !== 1) {
             return false;
         }
 
-        $pending = MapDiscordServer::query()
-            ->where('status', MapDiscordServer::Pending)
-            ->where('pending_expires_at', '>', now())
-            ->get();
+        $bound = DB::transaction(function () use ($guildId): ?MapDiscordServer {
+            if (MapDiscordServer::query()->where('guild_id', $guildId)->where('status', MapDiscordServer::Active)->lockForUpdate()->exists()) {
+                return null;
+            }
 
-        if ($pending->count() !== 1) {
+            $pending = MapDiscordServer::query()
+                ->where('status', MapDiscordServer::Pending)
+                ->where('pending_expires_at', '>', now())
+                ->lockForUpdate()
+                ->get();
+
+            if ($pending->count() !== 1) {
+                return null;
+            }
+
+            /** @var MapDiscordServer $server */
+            $server = $pending->first();
+            $this->activate($server, $guildId, null);
+
+            return $server;
+        });
+
+        if (! $bound instanceof MapDiscordServer) {
             return false;
         }
-
-        /** @var MapDiscordServer $server */
-        $server = $pending->first();
-        $server->guild_id = $guildId;
-        $server->guild_name = $this->bot->configured() ? $this->bot->guildName($guildId) : null;
-        $server->status = MapDiscordServer::Active;
-        $server->pending_expires_at = null;
-        $server->save();
 
         if ($this->bot->configured()) {
-            $this->resync($server);
+            $bound->guild_name = $this->bot->guildName($guildId);
+            $bound->save();
+            $this->resync($bound);
         }
 
         return true;
+    }
+
+    /**
+     * Bind the invite identified by the OAuth state. Returns an error message, or null when the guild is bound.
+     */
+    public function bindAuthorizedGuild(MapDiscordServer $server, string $guildId): ?string
+    {
+        if (preg_match('/^\d{1,20}$/', $guildId) !== 1) {
+            return 'Discord did not confirm a server for that authorization.';
+        }
+
+        if (! $this->bot->configured()) {
+            return 'The access bot is not configured.';
+        }
+
+        $guildName = $this->bot->guildName($guildId);
+        if ($guildName === null) {
+            return 'The access bot is not in that Discord server.';
+        }
+
+        $error = DB::transaction(function () use ($server, $guildId, $guildName): ?string {
+            $locked = MapDiscordServer::query()->lockForUpdate()->find($server->id);
+            if (! $locked instanceof MapDiscordServer) {
+                return 'This invite has expired. Start a new one.';
+            }
+
+            if ($locked->status === MapDiscordServer::Active) {
+                if ($locked->guild_id !== $guildId) {
+                    return 'This map is already connected to a Discord server.';
+                }
+
+                $locked->pending_state_hash = null;
+                $locked->pending_expires_at = null;
+                $locked->save();
+
+                return null;
+            }
+
+            if (! $locked->isPending()) {
+                return 'This invite has expired. Start a new one.';
+            }
+
+            $taken = MapDiscordServer::query()
+                ->where('guild_id', $guildId)
+                ->where('status', MapDiscordServer::Active)
+                ->whereKeyNot($locked->id)
+                ->lockForUpdate()
+                ->exists();
+            if ($taken) {
+                return 'That Discord server is already connected to another map.';
+            }
+
+            try {
+                $this->activate($locked, $guildId, $guildName);
+                $locked->pending_state_hash = null;
+                $locked->save();
+            } catch (QueryException $exception) {
+                $errorInfo = $exception->errorInfo;
+                if (! is_array($errorInfo) || ($errorInfo[0] ?? null) !== '23000') {
+                    throw $exception;
+                }
+
+                return 'That Discord server is already connected to another map.';
+            }
+
+            return null;
+        });
+
+        if ($error !== null) {
+            return $error;
+        }
+
+        $fresh = $server->fresh();
+        if ($fresh instanceof MapDiscordServer) {
+            $this->resync($fresh);
+        }
+
+        return null;
     }
 
     public function onMemberJoin(string $guildId, string $discordUserId): void
@@ -224,6 +319,15 @@ final class DiscordAccessSync
             'reason' => $reason,
             'created_at' => now(),
         ]);
+    }
+
+    private function activate(MapDiscordServer $server, string $guildId, ?string $guildName): void
+    {
+        $server->guild_id = $guildId;
+        $server->guild_name = $guildName;
+        $server->status = MapDiscordServer::Active;
+        $server->pending_expires_at = null;
+        $server->save();
     }
 
     private function activeServer(string $guildId): ?MapDiscordServer

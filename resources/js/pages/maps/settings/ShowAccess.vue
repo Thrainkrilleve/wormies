@@ -34,10 +34,11 @@ const { map, entities, entitiesWithAccess, discordAccess } = defineProps<{
     entities: TSearchEntity[];
     entitiesWithAccess: TAccessEntity[];
     discordAccess: {
-        status: string | null;
+        status: 'pending' | 'active' | 'expired' | 'removed' | string | null;
         guild_name: string | null;
         unmatched_count: number;
         invite_url: string | null;
+        error: string | null;
     };
 }>();
 
@@ -68,14 +69,25 @@ function toggleAccess(entity: TSearchEntity | TAccessEntity, permission: 'viewer
                 <p class="text-sm text-muted-foreground">
                     Linked members of one Discord server can view this map. Nicknames are ignored. People who have not linked an account are counted, not listed.
                 </p>
+                <p v-if="discordAccess.error" class="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    {{ discordAccess.error }}
+                </p>
                 <p v-if="discordAccess.status === 'active'" class="mt-3 text-sm">
-                    Connected<span v-if="discordAccess.guild_name"> to {{ discordAccess.guild_name }}</span>.
+                    Active. Connected<span v-if="discordAccess.guild_name"> to {{ discordAccess.guild_name }}</span><span v-else> to a Discord server</span>.
                     {{ discordAccess.unmatched_count }} unmatched member<span v-if="discordAccess.unmatched_count === 1"> is</span><span v-else>s are</span> not granted access.
                 </p>
-                <p v-else-if="discordAccess.status === 'pending'" class="mt-3 text-sm">Waiting for the access bot to join. The invite expires in 15 minutes.</p>
+                <p v-else-if="discordAccess.status === 'pending'" class="mt-3 text-sm">
+                    Pending. Finish authorization for this map. This works when the bot is already in the server. The invite expires in 15 minutes.
+                </p>
+                <p v-else-if="discordAccess.status === 'expired'" class="mt-3 text-sm">
+                    Expired. The last invite was not completed. Start a new one.
+                </p>
+                <p v-else-if="discordAccess.status === 'removed'" class="mt-3 text-sm">
+                    Removed<span v-if="discordAccess.guild_name"> from {{ discordAccess.guild_name }}</span>. The access bot is not in that server, so derived access was dropped.
+                </p>
                 <p v-else class="mt-3 text-sm">No Discord server is connected.</p>
-                <a v-if="discordAccess.invite_url" :href="discordAccess.invite_url" class="mt-3 inline-flex text-sm underline" target="_blank" rel="noreferrer">
-                    Open the bot invite
+                <a v-if="discordAccess.invite_url" :href="discordAccess.invite_url" class="mt-3 inline-flex text-sm underline">
+                    Open the Discord authorization
                 </a>
                 <div class="mt-4 flex gap-2">
                     <button

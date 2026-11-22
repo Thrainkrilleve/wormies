@@ -17,7 +17,12 @@ final class DiscordAccessGateway
 
     public function __construct(private readonly DiscordAccessSync $sync) {}
 
-    /** @param list<string> $guildIds */
+    /**
+     * Guilds already visible when the socket opens are not invites. Binding one
+     * of them here would hand a pending map to whichever server the bot is in.
+     *
+     * @param  list<string>  $guildIds
+     */
     public function markReady(array $guildIds): void
     {
         $this->knownGuilds = [];

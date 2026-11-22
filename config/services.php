@@ -68,6 +68,8 @@ return [
         'bot_token' => env('DISCORD_BOT_TOKEN'),
         'access_bot_token' => env('DISCORD_ACCESS_BOT_TOKEN'),
         'access_application_id' => env('DISCORD_ACCESS_APPLICATION_ID'),
+        'access_client_secret' => env('DISCORD_ACCESS_CLIENT_SECRET'),
+        'access_redirect' => env('DISCORD_ACCESS_REDIRECT_URI'),
         'redirect' => env('DISCORD_CALLBACK', 'https://wormholesystems.test/discord/callback'),
         'test_guild_id' => env('DISCORD_TEST_GUILD_ID'),
     ],
