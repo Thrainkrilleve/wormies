@@ -25,6 +25,8 @@ final class MapDiscordAccessAudit extends Model
 
     public const string Permission = 'permission';
 
+    public const string Nickname = 'nickname';
+
     public $timestamps = false;
 
     protected $table = 'map_discord_access_audits';

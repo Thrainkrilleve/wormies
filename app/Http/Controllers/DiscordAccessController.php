@@ -9,6 +9,7 @@ use App\DiscordAccess\DiscordAccessAuthorizationException;
 use App\DiscordAccess\DiscordAccessBot;
 use App\DiscordAccess\DiscordAccessState;
 use App\DiscordAccess\DiscordAccessSync;
+use App\DiscordAccess\DiscordNicknameSync;
 use App\Enums\Permission;
 use App\Http\Requests\UpdateDiscordAccessPermissionRequest;
 use App\Models\Character;
@@ -120,6 +121,26 @@ final class DiscordAccessController extends Controller
         return back()->notify('Discord access updated', 'Linked members now have '.$permission->value.' access.');
     }
 
+    public function updateNicknameSync(Request $request, Map $map): RedirectResponse
+    {
+        Gate::authorize('manageAccess', $map);
+        $validated = $request->validate([
+            'nickname_sync' => ['required', 'boolean'],
+        ]);
+
+        $server = MapDiscordServer::query()->where('map_id', $map->id)->first();
+        if (! $server instanceof MapDiscordServer || $server->status !== MapDiscordServer::Active) {
+            return back()->notify('Discord server is not connected', 'Connect a server before changing nickname sync.', 'error');
+        }
+
+        $server->nickname_sync = (bool) $validated['nickname_sync'];
+        $server->save();
+
+        return back()->notify('Discord nicknames updated', $server->nickname_sync
+            ? 'Linked members will be renamed from their main character.'
+            : 'The bot will leave Discord nicknames unchanged.');
+    }
+
     public function disconnect(Map $map, DiscordAccessSync $sync): RedirectResponse
     {
         Gate::authorize('manageAccess', $map);
@@ -171,6 +192,7 @@ final class DiscordAccessController extends Controller
             'avatar' => null,
         ]);
         $sync->confirmMembership($discordUserId);
+        app(DiscordNicknameSync::class)->sync($discordUserId);
 
         return to_route('discord-access.linked');
     }

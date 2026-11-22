@@ -216,7 +216,7 @@ it('lets only managers start an invite and ignores a pasted guild id', function 
         ->and($server?->pending_state_hash)->toBe(DiscordAccessState::hash((string) $state))
         ->and($server?->pending_state_hash)->not->toBe($state)
         ->and($invite)->toContain('response_type=code')
-        ->and($invite)->toContain('permissions=0')
+        ->and($invite)->toContain('permissions=134217728')
         ->and($invite)->toContain('integration_type=0')
         ->and($invite)->toContain('bot%20applications.commands')
         ->and($invite)->toContain('redirect_uri='.rawurlencode('https://wormhole.example.com/discord-access/callback'))

@@ -18,6 +18,7 @@ final class DiscordAccessSync
     public function __construct(
         private readonly DiscordAccessBot $bot,
         private readonly CreateDiscordAccessLink $links,
+        private readonly DiscordNicknameSync $nicknames,
     ) {}
 
     public function startInvite(MapDiscordServer $server, string $state): MapDiscordServer
@@ -166,6 +167,7 @@ final class DiscordAccessSync
         }
 
         $this->grant($server, $discordUserId, DiscordAccessReason::Join);
+        $this->nicknames->sync($discordUserId);
     }
 
     public function onMemberLeave(string $guildId, string $discordUserId): void
@@ -198,6 +200,7 @@ final class DiscordAccessSync
             return 'You are not linked.';
         }
 
+        $this->nicknames->clear($discordUserId);
         $account->delete();
 
         return 'This Discord account is no longer linked. Derived map access was removed.';
