@@ -248,6 +248,7 @@ export type TCharacter = {
     status: TCharacterStatus | null;
     route?: TResolvedSolarsystem[]; // Fastest route
     esi_scopes?: string[];
+    needs_direct_sso?: boolean;
     is_preferred?: boolean;
     is_mine?: boolean;
 };

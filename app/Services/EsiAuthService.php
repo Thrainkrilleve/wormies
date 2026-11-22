@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\DTO\EveSocialiteUser;
+use App\Enums\EsiTokenSource;
 use App\Exception\CharacterNotAuthorizedException;
 use App\Jobs\UpdateAffiliations;
 use App\Models\Alliance;
@@ -115,10 +116,15 @@ final readonly class EsiAuthService
 
     public function createEsiToken(EveSocialiteUser $socialite_user, Character $character): void
     {
+        $clientId = config('esi.client_id');
+
         $token = $character->esiTokens()->create([
             'access_token' => $socialite_user->token,
             'refresh_token' => $socialite_user->refresh_token,
             'token_type' => $socialite_user->token_type,
+            'source' => EsiTokenSource::EveSso,
+            'oauth_client_id' => is_string($clientId) && $clientId !== '' ? $clientId : null,
+            'reauth_required' => false,
             'character_owner_hash' => $socialite_user->character_owner_hash,
             'expires_at' => now()->addSeconds($socialite_user->expires_in),
         ]);

@@ -27,7 +27,7 @@ final class SettingsController extends Controller
     /** @throws Throwable */
     public function show(Request $request): Response
     {
-        $characters = $this->user->characters()->with('esiScopes')->get();
+        $characters = $this->user->characters()->with(['esiScopes', 'esiTokens'])->get();
         $discordAccount = $this->user->discordAccount()->first();
         $discordAlerts = $this->user->createdMapAlerts()
             ->bot()

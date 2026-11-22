@@ -82,6 +82,9 @@ it('does not delete an ESI token when ESI returns unauthorized', function () {
 });
 
 it('deletes an ESI token only when the refresh token is revoked', function () {
+    config()->set('esi.client_id', 'wormies-client');
+    config()->set('esi.client_secret', 'wormies-secret');
+
     Http::fake([
         'login.eveonline.com/*' => Http::response(['error' => 'invalid_grant'], 400),
     ]);

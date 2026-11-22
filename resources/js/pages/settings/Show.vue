@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import DiscordAccountController from '@/actions/App/Http/Controllers/DiscordAccountController';
+import EveController from '@/actions/App/Http/Controllers/EveController';
 import PreferredCharacterController from '@/actions/App/Http/Controllers/PreferredCharacterController';
 import ScopeController from '@/actions/App/Http/Controllers/ScopeController';
 import SettingsController from '@/actions/App/Http/Controllers/SettingsController';
@@ -61,7 +62,13 @@ const characterPendingRemoval = ref<SettingsCharacter | null>(null);
 const scopePendingRemoval = ref<SettingsCharacter | null>(null);
 const disconnectPending = ref(false);
 const tokenPendingDeletion = ref<TToken | null>(null);
-const grantUrl = (scopes: string): string => ScopeController.show({ query: { scopes } }).url;
+const grantUrl = (scopes: string, character?: SettingsCharacter): string => {
+    if (character?.needs_direct_sso) {
+        return EveController.show({ query: { add_to_account: 1, scopes } }).url;
+    }
+
+    return ScopeController.show({ query: { scopes } }).url;
+};
 const grantedScopes = (character: SettingsCharacter): number => managedScopes.filter(({ scope }) => character.esi_scopes?.includes(scope)).length;
 
 function changeSection(value: string | number): void {
@@ -153,7 +160,10 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                         <CardHeader class="border-b bg-muted/20 py-4 sm:flex-row sm:items-center sm:justify-between"
                             ><div class="space-y-1">
                                 <CardTitle>Characters and ESI</CardTitle
-                                ><CardDescription>Grant only the live data each character should share.</CardDescription>
+                                ><CardDescription
+                                    >Grant only the live data each character should share. If Alliance Auth can no longer refresh a character, sign
+                                    that character in with EVE.</CardDescription
+                                >
                             </div>
                             <Button size="sm" as-child><a :href="grantUrl(allScopeNames)">Grant all permissions</a></Button></CardHeader
                         >
@@ -190,6 +200,9 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                                                     />
                                                     <span class="font-medium whitespace-nowrap">{{ character.name }}</span>
                                                 </div>
+                                                <p v-if="character.needs_direct_sso" class="mt-1 max-w-xs text-xs text-amber-500">
+                                                    Alliance Auth could not refresh this character. Sign in with EVE to reconnect it.
+                                                </p>
                                             </TableCell>
                                             <TableCell>
                                                 <div class="flex items-center gap-2">
@@ -221,7 +234,10 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                                                                     <span class="ml-auto text-xs text-muted-foreground">Granted</span>
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem v-else as-child>
-                                                                    <a :href="grantUrl(scope.scope)" class="flex w-full items-center gap-2">
+                                                                    <a
+                                                                        :href="grantUrl(scope.scope, character)"
+                                                                        class="flex w-full items-center gap-2"
+                                                                    >
                                                                         <Plus class="size-4" />
                                                                         Grant {{ scope.name }}
                                                                     </a>
@@ -229,9 +245,9 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                                                             </template>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem as-child>
-                                                                <a :href="grantUrl(allScopeNames)" class="flex w-full items-center gap-2">
+                                                                <a :href="grantUrl(allScopeNames, character)" class="flex w-full items-center gap-2">
                                                                     <ShieldCheck class="size-4" />
-                                                                    Grant all permissions
+                                                                    {{ character.needs_direct_sso ? 'Sign in with EVE' : 'Grant all permissions' }}
                                                                 </a>
                                                             </DropdownMenuItem>
                                                         </DropdownMenuContent>
@@ -276,9 +292,9 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" class="w-56">
                                                         <DropdownMenuItem as-child>
-                                                            <a :href="grantUrl(allScopeNames)" class="flex w-full items-center gap-2">
+                                                            <a :href="grantUrl(allScopeNames, character)" class="flex w-full items-center gap-2">
                                                                 <ShieldCheck class="size-4" />
-                                                                Grant all permissions
+                                                                {{ character.needs_direct_sso ? 'Sign in with EVE' : 'Grant all permissions' }}
                                                             </a>
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem class="w-full" @select="scopePendingRemoval = character">

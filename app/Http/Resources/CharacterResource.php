@@ -32,6 +32,7 @@ final class CharacterResource extends JsonResource
             'security_status' => $this->security_status,
             'status' => $this->whenLoaded('characterStatus', fn () => $this->characterStatus?->toResource(CharacterStatusResource::class)),
             'esi_scopes' => $this->whenLoaded('esiScopes', fn () => $this->esiScopes->map(fn (EsiScope $scope) => $scope->name)),
+            'needs_direct_sso' => $this->needsDirectSso(),
             'is_preferred' => $request->user()?->preferred_character_id === $this->id,
             'is_mine' => $request->user()?->id === $this->user_id,
         ];

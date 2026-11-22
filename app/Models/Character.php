@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Builders\CharacterBuilder;
+use App\Enums\EsiTokenSource;
 use Carbon\CarbonImmutable;
 use Database\Factories\CharacterFactory;
 use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
@@ -17,7 +18,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use NicolasKion\Esi\Enums\EsiScope;
-use NicolasKion\Esi\Interfaces\EsiToken;
 use Staudenmeir\EloquentHasManyDeep\HasManyDeep;
 use Staudenmeir\EloquentHasManyDeep\HasRelationships;
 
@@ -148,11 +148,36 @@ final class Character extends Model implements \NicolasKion\Esi\Interfaces\Chara
         );
     }
 
-    public function getEsiTokenWithScope(EsiScope $scope): ?EsiToken
+    public function getEsiTokenWithScope(EsiScope $scope): ?\App\Models\EsiToken
     {
         return $this->esiTokens()
+            ->where('reauth_required', false)
             ->whereRelation('esiScopes', 'name', $scope)
+            ->get()
+            ->sortBy([
+                fn (\App\Models\EsiToken $token): int => $token->source === EsiTokenSource::EveSso ? 0 : 1,
+                fn (\App\Models\EsiToken $token): int => $token->expires_at instanceof CarbonImmutable
+                    ? -$token->expires_at->getTimestamp()
+                    : PHP_INT_MAX,
+            ])
             ->first();
+    }
+
+    public function needsDirectSso(): bool
+    {
+        $tokens = $this->relationLoaded('esiTokens')
+            ? $this->esiTokens
+            : $this->esiTokens()->get();
+
+        $hasDirectToken = $tokens->contains(
+            fn (\App\Models\EsiToken $token): bool => $token->source === EsiTokenSource::EveSso && ! $token->reauth_required,
+        );
+
+        if ($hasDirectToken) {
+            return false;
+        }
+
+        return $tokens->contains(fn (\App\Models\EsiToken $token): bool => $token->reauth_required);
     }
 
     public function esiScopes(): HasManyDeep

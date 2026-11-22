@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Builders\EsiTokenBuilder;
+use App\Enums\EsiTokenSource;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\UseEloquentBuilder;
 use Illuminate\Database\Eloquent\Collection;
@@ -22,6 +23,9 @@ use NicolasKion\Esi\Connector;
  * @property string $access_token
  * @property string|null $refresh_token
  * @property string $token_type
+ * @property EsiTokenSource $source
+ * @property string|null $oauth_client_id
+ * @property bool $reauth_required
  * @property int $character_id
  * @property-read  CarbonImmutable $created_at
  * @property-read  CarbonImmutable $updated_at
@@ -45,6 +49,8 @@ final class EsiToken extends Model implements \NicolasKion\Esi\Interfaces\EsiTok
         'expires_at' => 'immutable_datetime',
         'access_token' => 'encrypted',
         'refresh_token' => 'encrypted',
+        'source' => EsiTokenSource::class,
+        'reauth_required' => 'boolean',
     ];
 
     /**
@@ -67,7 +73,21 @@ final class EsiToken extends Model implements \NicolasKion\Esi\Interfaces\EsiTok
         return $this->belongsToMany(EsiScope::class, 'esi_token_scope', 'esi_token_id', 'esi_scope_id');
     }
 
+    /**
+     * The ESI library refreshes any expired token with this app's EVE client.
+     * Alliance Auth tokens belong to a different client, so the library must
+     * treat them as not expired and leave the refresh to CharacterEsiClient.
+     */
     public function isExpired(): bool
+    {
+        if ($this->source === EsiTokenSource::AllianceAuth) {
+            return false;
+        }
+
+        return $this->needsRefresh();
+    }
+
+    public function needsRefresh(): bool
     {
         if (! $this->expires_at instanceof CarbonImmutable) {
             return true;

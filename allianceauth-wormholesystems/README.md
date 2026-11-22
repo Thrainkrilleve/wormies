@@ -56,6 +56,8 @@ Go to Alliance Auth Admin (`https://auth.yourdomain.com/admin/`):
    - `WS_CLIENT_ID`
    - `WS_CLIENT_SECRET`
 
+Wormhole Systems refreshes copied ESI access tokens by calling `POST /wormholesystems/api/character-token/` with that same client id and secret (HTTP Basic) and a JSON body `{"character_id": 123}`. Alliance Auth refreshes the token with its own EVE application and returns a current access token. The refresh token is not returned. This route is only available after the plugin that contains it is installed, so an existing install needs a new package version and a redeploy before Wormhole Systems can use it. Until then Wormhole Systems keeps the copied token and asks the pilot to sign in with EVE directly.
+
 ### 5. Grant Permissions to Users / Groups
 In Alliance Auth Admin:
 - Go to **Authentication and Authorization** > **Groups** (or **States**).
