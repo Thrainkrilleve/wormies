@@ -1,5 +1,10 @@
 # Stage 1: Build environment (Composer, Node, Assets)
-FROM dunglas/frankenphp:builder-php8.4 AS builder
+# FrankenPHP 1.13.6 embeds PHP 8.4.28. The tag is pinned to the multi-arch
+# manifest digest so a retag cannot move this build onto an older PHP.
+FROM dunglas/frankenphp:1.13.6-builder-php8.4@sha256:1f71aec1ae690595019640766f749e43fabb9dcc26092c0906cac7259c1fff4b AS builder
+
+COPY docker/require-php-version.sh /tmp/require-php-version.sh
+RUN sh /tmp/require-php-version.sh 8.4.28
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf \
@@ -67,7 +72,10 @@ RUN npm run build
 
 # ---
 # Stage 2: Production environment
-FROM dunglas/frankenphp:php8.4
+FROM dunglas/frankenphp:1.13.6-php8.4@sha256:bbe6057527f8dd9e270d9e2a33315f26b264ce8b0dbd19b67b0855a7899960ec
+
+COPY docker/require-php-version.sh /tmp/require-php-version.sh
+RUN sh /tmp/require-php-version.sh 8.4.28
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \

@@ -246,7 +246,9 @@ it('redirects a share link to the map with the share token', function () {
     $map = Map::factory()->create(['is_public' => false, 'share_token' => $token]);
 
     $this->get(route('maps.share', $token))
-        ->assertRedirect(route('maps.show', ['map' => $map, 'share_token' => $token]));
+        ->assertRedirect(route('maps.show', $map));
+
+    expect(session("map_share_token_{$map->id}"))->toBe($token);
 });
 
 it('allows an anonymous user to view a share token map with valid token', function () {

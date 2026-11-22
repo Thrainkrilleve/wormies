@@ -51,7 +51,10 @@ const managedScopes = [
 const allScopeNames = managedScopes.map(({ scope }) => scope).join(',');
 const preferredCharacterId = computed(() => props.characters.find((character) => character.is_preferred)?.id.toString());
 type SettingsSection = 'esi' | 'discord' | 'tokens';
-const tokenForm = useForm({ name: '' });
+const tokenForm = useForm({
+    name: '',
+    abilities: ['maps:read', 'maps:write'],
+});
 const disconnectForm = useForm({});
 const deleteTokenForm = useForm({});
 const characterPendingRemoval = ref<SettingsCharacter | null>(null);
@@ -418,14 +421,27 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                     <Card id="tokens" class="gap-0 overflow-hidden py-0">
                         <CardHeader class="border-b bg-muted/20 py-4">
                             <CardTitle class="flex items-center gap-2"><KeyRound class="size-5" />API tokens</CardTitle>
-                            <CardDescription>Credentials inherit your full map access. Treat them like passwords.</CardDescription>
+                            <CardDescription>Choose what each token can do. A token only sees maps you can already open.</CardDescription>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-4 px-4 py-4">
                             <form class="grid grid-cols-[1fr_auto] gap-2" @submit.prevent="createToken">
                                 <Label for="token-name" class="col-span-full">New token</Label>
                                 <Input id="token-name" v-model="tokenForm.name" placeholder="Integration name" required />
-                                <Button type="submit" :disabled="tokenForm.processing">Create</Button>
+                                <Button type="submit" :disabled="tokenForm.processing || tokenForm.abilities.length === 0">Create</Button>
+                                <div class="col-span-full flex flex-wrap gap-4 text-sm">
+                                    <label class="flex items-center gap-2">
+                                        <input v-model="tokenForm.abilities" type="checkbox" value="maps:read" />
+                                        Read maps
+                                    </label>
+                                    <label class="flex items-center gap-2">
+                                        <input v-model="tokenForm.abilities" type="checkbox" value="maps:write" />
+                                        Change maps
+                                    </label>
+                                </div>
                                 <p v-if="tokenForm.errors.name" class="col-span-full text-xs text-destructive">{{ tokenForm.errors.name }}</p>
+                                <p v-if="tokenForm.errors.abilities" class="col-span-full text-xs text-destructive">
+                                    {{ tokenForm.errors.abilities }}
+                                </p>
                             </form>
                             <div v-if="token" class="grid grid-cols-[1fr_auto] gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                                 <code class="min-w-0 overflow-x-auto rounded bg-background p-2 text-xs">{{ token }}</code>
@@ -441,7 +457,10 @@ const formatDate = (date: string | null): string => (date ? format(new UTCDate(d
                                 <div v-for="apiToken in tokens" :key="apiToken.id" class="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                                     <div class="min-w-0">
                                         <div class="truncate font-medium">{{ apiToken.name }}</div>
-                                        <div class="text-xs text-muted-foreground">Last used {{ formatDate(apiToken.last_used_at) }}</div>
+                                        <div class="text-xs text-muted-foreground">
+                                            {{ apiToken.abilities?.includes('*') ? 'Full access' : (apiToken.abilities || []).join(', ') }}
+                                            · Last used {{ formatDate(apiToken.last_used_at) }}
+                                        </div>
                                     </div>
                                     <Button
                                         size="icon"

@@ -88,9 +88,11 @@ it('stores a share token in the session only when it matches', function () {
     expect(session("map_share_token_{$map->id}"))->toBeNull();
 
     $this->get(route('maps.show', ['map' => $map, 'share_token' => $token]))
-        ->assertSuccessful();
+        ->assertRedirect(route('maps.show', $map));
 
     expect(session("map_share_token_{$map->id}"))->toBe($token);
+
+    $this->get(route('maps.show', $map))->assertSuccessful();
 });
 
 it('does not answer a map ping for a map the user cannot view', function () {

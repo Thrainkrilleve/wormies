@@ -125,4 +125,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Trusted proxies
+    |--------------------------------------------------------------------------
+    |
+    | Addresses allowed to set X-Forwarded-* . The default is loopback and the
+    | private ranges Docker uses. Set TRUSTED_PROXIES=* only when every hop is
+    | a proxy you control.
+    |
+    */
+
+    'trusted_proxies' => App\Http\TrustedProxies::fromEnv(env('TRUSTED_PROXIES')),
+
 ];

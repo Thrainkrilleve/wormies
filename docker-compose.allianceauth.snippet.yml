@@ -65,6 +65,8 @@ x-wormholesystems-base: &wormholesystems-base
     REVERB_SCHEME: http
     REVERB_BEHIND_PROXY: "true"
     BROADCAST_CONNECTION: reverb
+    # Do not inherit Alliance Auth's file session driver from the shared env file.
+    SESSION_DRIVER: database
     SESSION_SECURE_COOKIE: "true"
     VITE_REVERB_APP_KEY: "${WS_REVERB_KEY:-${AA_SECRET_KEY}}"
     VITE_REVERB_HOST: "${WS_REVERB_HOST:-ws.wormhole.${DOMAIN}}"

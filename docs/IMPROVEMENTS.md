@@ -45,7 +45,7 @@ The first purge after this image ships will delete the old 730-day table in batc
 
 After this image is published, pull it and recreate the containers. A deployment compose that overrides queue, scheduler, or killmails with `pgrep` can drop that override. The image healthcheck is enough. `SESSION_SECURE_COOKIE=true` is correct for the HTTPS tunnel. A browser that hits the published HTTP port directly will not store the session cookie. Do not leave `APP_KEY` blank. The entrypoint still mints a random key when both `APP_KEY` and `AA_SECRET_KEY` are empty. That was left alone because a stack that currently boots that way would crash-loop until a key is set.
 
-`composer audit --locked --no-dev` runs before the image is published. It currently reports advisories already in the lockfile (Laravel framework below the patched 13.x releases, plus Guzzle, Symfony components, CommonMark, Flysystem, phpseclib, and react/http). Publishing `latest` stays blocked until those are bumped. That upgrade is not part of this change. Pull request tests do not fail on it.
+`composer audit --locked --no-dev` runs before the image is published. The packages it used to flag (Laravel, Guzzle, Symfony, CommonMark, Flysystem, phpseclib, react/http) are bumped in this follow-up. `npm audit` has no remaining high or critical findings. Moderate findings that need a breaking upgrade were left alone.
 
 ## Access
 
@@ -56,17 +56,17 @@ Fixed:
 - ESI access and refresh tokens are encrypted at rest. A migration encrypts rows that are still plaintext. Reads go through the cast, so callers still see the token.
 - Map access matches character, corporation, and alliance by **type and id**. An id-only check would treat a character whose id equals a corporation id as that corporation.
 - A signature update cannot point `map_connection_id` at a connection on another map. That write also copied mass and lifetime onto the other connection.
-- A guest cannot change settings on a private map just because a share token exists. The view policy has to pass, which means the token is presented. A wrong token is not stored over a good one in the session. Comparison is `hash_equals`.
+- Share links (`/share/{token}`) put the token in the session and redirect to the map without it. An older `?share_token=` link still works once: the token is stored and the browser is redirected to the same URL with that parameter removed. API and other clients can send `X-Map-Share-Token` instead of a query parameter. Comparison is `hash_equals`.
+- Personal access tokens take `maps:read` and `maps:write`. The map API enforces the matching ability. A first-party session is unchanged. Tokens that already have `*` keep full access.
+- Webhook URLs use the encrypted cast. A migration encrypts rows that are still plaintext.
+- `TRUSTED_PROXIES` replaces trusting every address. The default is loopback and the private ranges Docker uses (`127.0.0.1`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). Set it to the proxy address, or to `*`, if a public proxy in front of the app must set `X-Forwarded-*`.
+- The image is FrankenPHP 1.13.6 pinned by digest, which ships PHP 8.4.28. `docker/require-php-version.sh` fails the image build and CI when PHP is older. Laravel sessions stay on the database driver (`SESSION_DRIVER=database` is set in the Alliance Auth snippet so a shared env file cannot switch them to files). Production refuses `SESSION_DRIVER=file`. PHP upload-progress sessions are off. They are not used.
 - The map ping requires `view` on that map.
 - Alliance Auth's denied-callback log no longer includes the query string (it contained the authorization code).
 - The lint workflow no longer has `contents: write`. The auto-commit step that needed it is commented out.
 
-Left as larger follow-ups:
+Left as a smaller follow-up:
 
-- Share links put the token in the query string. `Referrer-Policy` is now `strict-origin-when-cross-origin`, which stops it leaving the site, but it is still in browser history and in access logs. A one-time exchange for a session would remove it from the URL.
-- Personal access tokens can do anything the user can. There are no Sanctum abilities.
-- Webhook URLs are stored in plaintext. Only managers can open the Discord settings page. Encrypting them is a separate migration.
-- `trustProxies(at: '*')` is right behind the tunnel. It is wrong if the published port is reachable on a LAN, because any client there can spoof `X-Forwarded-*`. Binding the ports to `127.0.0.1` is the mitigation in the standalone compose. Keep it that way.
 - Eager-loading `mapConnections.signatures` (and `mapOwner.accessible`) is still an open query improvement. It is not an access bug.
 - There is no global admin role above map owner. That is current product behavior, not a hole.
 
