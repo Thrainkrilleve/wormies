@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $guild_name
  * @property string $status
  * @property string $permission
+ * @property bool $nickname_sync
  * @property CarbonImmutable|null $pending_expires_at
  * @property string|null $pending_state_hash
  * @property int $unmatched_count
@@ -66,6 +67,7 @@ final class MapDiscordServer extends Model
     protected function casts(): array
     {
         return [
+            'nickname_sync' => 'boolean',
             'pending_expires_at' => 'immutable_datetime',
             'unmatched_count' => 'integer',
         ];

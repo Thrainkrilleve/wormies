@@ -106,6 +106,7 @@ final class MapAccessController extends Controller
                 'guild_name' => $discordServer?->guild_name,
                 'unmatched_count' => $discordServer instanceof MapDiscordServer ? $discordServer->unmatched_count : 0,
                 'permission' => $discordServer?->derivedPermission()?->value,
+                'nickname_sync' => $discordServer instanceof MapDiscordServer ? $discordServer->nickname_sync : true,
                 'invite_url' => $this->discordInviteUrl($discordServer, $bot),
                 'error' => $this->discordAccessError(),
                 'roster' => $discordServer instanceof MapDiscordServer && $discordServer->status === MapDiscordServer::Active

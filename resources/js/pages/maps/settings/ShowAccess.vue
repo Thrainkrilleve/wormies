@@ -38,6 +38,7 @@ const { map, entities, entitiesWithAccess, discordAccess } = defineProps<{
         guild_name: string | null;
         unmatched_count: number;
         permission: 'viewer' | 'member' | null;
+        nickname_sync: boolean;
         invite_url: string | null;
         error: string | null;
         roster: {
@@ -65,6 +66,10 @@ const { map, entities, entitiesWithAccess, discordAccess } = defineProps<{
 
 function setDiscordPermission(permission: string) {
     router.post(DiscordAccessController.updatePermission(map.slug), { permission }, { preserveScroll: true });
+}
+
+function setNicknameSync(nickname_sync: boolean) {
+    router.post(DiscordAccessController.updateNicknameSync(map.slug), { nickname_sync }, { preserveScroll: true });
 }
 
 function filterRoster(corporation_id: string | null, alliance_id: string | null) {
@@ -116,7 +121,7 @@ function toggleAccess(entity: TSearchEntity | TAccessEntity, permission: 'viewer
             <div class="rounded-lg border border-border/50 p-4">
                 <h3 class="text-lg font-semibold">Discord server</h3>
                 <p class="text-sm text-muted-foreground">
-                    Linked members of one Discord server get the level chosen below. They cannot manage this map. Nicknames are ignored. People who have not linked an account are counted, not listed.
+                    Linked members of one Discord server get the level chosen below. They cannot manage this map. People who have not linked an account are counted, not listed.
                 </p>
                 <p v-if="discordAccess.error" class="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
                     {{ discordAccess.error }}
@@ -138,7 +143,8 @@ function toggleAccess(entity: TSearchEntity | TAccessEntity, permission: 'viewer
                 <a v-if="discordAccess.invite_url" :href="discordAccess.invite_url" class="mt-3 inline-flex text-sm underline">
                     Open the Discord authorization
                 </a>
-                <div v-if="discordAccess.status === 'active'" class="mt-4 max-w-xs">
+                <div v-if="discordAccess.status === 'active'" class="mt-4 flex flex-wrap gap-8">
+                    <div class="max-w-xs">
                     <p class="mb-2 text-sm font-medium">Access level</p>
                     <Select :model-value="discordAccess.permission ?? 'member'" @update:model-value="setDiscordPermission(String($event))">
                         <SelectTrigger class="w-40" size="sm">
@@ -157,6 +163,20 @@ function toggleAccess(entity: TSearchEntity | TAccessEntity, permission: 'viewer
                             </SelectItem>
                         </SelectContent>
                     </Select>
+                    </div>
+                    <div class="max-w-sm">
+                        <p class="mb-2 text-sm font-medium">Server nickname</p>
+                        <button
+                            type="button"
+                            class="rounded-md border px-3 py-2 text-sm"
+                            @click="setNicknameSync(!discordAccess.nickname_sync)"
+                        >
+                            {{ discordAccess.nickname_sync ? 'On' : 'Off' }}
+                        </button>
+                        <p class="mt-2 text-xs leading-5 text-muted-foreground">
+                            Sets each linked member to [Alliance] [Corp] Main character. The bot needs Manage Nicknames, and its role must be above those members. The server owner cannot be renamed.
+                        </p>
+                    </div>
                 </div>
                 <div class="mt-4 flex gap-2">
                     <button

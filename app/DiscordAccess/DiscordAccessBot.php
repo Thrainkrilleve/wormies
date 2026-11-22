@@ -18,6 +18,9 @@ final class DiscordAccessBot
 {
     use RetriesDiscordRateLimits;
 
+    /** Discord permission bit for Manage Nicknames. */
+    public const int ManageNicknames = 134217728;
+
     public function configured(): bool
     {
         return $this->token() !== null && $this->applicationId() !== null;
@@ -57,7 +60,7 @@ final class DiscordAccessBot
 
         return 'https://discord.com/api/oauth2/authorize?'.http_build_query([
             'client_id' => $applicationId,
-            'permissions' => '0',
+            'permissions' => (string) self::ManageNicknames,
             'integration_type' => '0',
             'scope' => 'bot applications.commands',
             'response_type' => 'code',
@@ -182,6 +185,55 @@ final class DiscordAccessBot
         $response->throw();
 
         return 'present';
+    }
+
+    /**
+     * @return 'updated'|'unchanged'|'absent'|'denied'|'failed'
+     */
+    public function changeNickname(string $guildId, string $discordUserId, ?string $nick): string
+    {
+        if (preg_match('/^\d{1,20}$/', $guildId) !== 1 || preg_match('/^\d{1,20}$/', $discordUserId) !== 1) {
+            return 'failed';
+        }
+
+        try {
+            $member = $this->request()->get('/guilds/'.$guildId.'/members/'.$discordUserId);
+        } catch (Throwable) {
+            return 'failed';
+        }
+
+        if ($member->status() === 404) {
+            return 'absent';
+        }
+        if (in_array($member->status(), [401, 403], true)) {
+            return 'denied';
+        }
+        if (! $member->successful()) {
+            return 'failed';
+        }
+
+        $current = $member->json('nick');
+        $current = is_string($current) && $current !== '' ? $current : null;
+        if ($current === $nick) {
+            return 'unchanged';
+        }
+
+        try {
+            $updated = $this->request()->asJson()->patch('/guilds/'.$guildId.'/members/'.$discordUserId, [
+                'nick' => $nick,
+            ]);
+        } catch (Throwable) {
+            return 'failed';
+        }
+
+        if ($updated->successful()) {
+            return 'updated';
+        }
+        if (in_array($updated->status(), [401, 403], true)) {
+            return 'denied';
+        }
+
+        return 'failed';
     }
 
     public function registerCommands(): void
