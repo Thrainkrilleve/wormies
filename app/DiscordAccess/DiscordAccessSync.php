@@ -4,20 +4,26 @@ declare(strict_types=1);
 
 namespace App\DiscordAccess;
 
+use App\Enums\Permission;
 use App\Models\DiscordAccount;
 use App\Models\MapDiscordAccessAudit;
 use App\Models\MapDiscordGrant;
 use App\Models\MapDiscordServer;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 final class DiscordAccessSync
 {
-    public function __construct(private readonly DiscordAccessBot $bot) {}
+    public function __construct(
+        private readonly DiscordAccessBot $bot,
+        private readonly CreateDiscordAccessLink $links,
+    ) {}
 
     public function startInvite(MapDiscordServer $server, string $state): MapDiscordServer
     {
         $server->status = MapDiscordServer::Pending;
+        $server->permission = Permission::Member->value;
         $server->guild_id = null;
         $server->guild_name = null;
         $server->unmatched_count = 0;
@@ -165,6 +171,36 @@ final class DiscordAccessSync
     public function onMemberLeave(string $guildId, string $discordUserId): void
     {
         $this->revoke($guildId, $discordUserId, DiscordAccessReason::Leave);
+    }
+
+    public function changeDerivedPermission(MapDiscordServer $server, User $actor, Permission $next): void
+    {
+        if (! in_array($next, [Permission::Viewer, Permission::Member], true) || $server->guild_id === null) {
+            return;
+        }
+
+        $current = $server->derivedPermission();
+        if ($current === $next) {
+            return;
+        }
+
+        $from = $current instanceof Permission ? $current->value : 'none';
+        $server->permission = $next->value;
+        $server->save();
+        $this->audit($server->map_id, $server->guild_id, $actor->id, '0', MapDiscordAccessAudit::Permission, $from.'->'.$next->value);
+    }
+
+    public function unlinkInvokedUser(string $discordUserId): string
+    {
+        $this->links->forgetFor($discordUserId);
+        $account = DiscordAccount::query()->where('discord_user_id', $discordUserId)->first();
+        if (! $account instanceof DiscordAccount) {
+            return 'You are not linked.';
+        }
+
+        $account->delete();
+
+        return 'This Discord account is no longer linked. Derived map access was removed.';
     }
 
     public function revokeDiscordUser(string $discordUserId, string $reason): void

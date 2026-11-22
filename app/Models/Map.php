@@ -217,9 +217,14 @@ final class Map extends Model
             return $permission;
         }
 
-        return $this->discordGrants()->where('user_id', $user->id)->exists()
-            ? Permission::Viewer
-            : null;
+        return $this->discordPermission($user);
+    }
+
+    public function grantsAtLeast(User $user, Permission $required): bool
+    {
+        $permission = $this->getUserPermission($user);
+
+        return $permission instanceof Permission && $permission->isAtLeast($required);
     }
 
     /**
@@ -234,5 +239,24 @@ final class Map extends Model
             'constant_width_enabled' => 'boolean',
             'bookmark_alias_scheme' => AliasScheme::class,
         ];
+    }
+
+    private function discordPermission(User $user): ?Permission
+    {
+        $value = $this->discordGrants()
+            ->where('map_discord_grants.user_id', $user->id)
+            ->join('map_discord_servers', function ($join): void {
+                $join->on('map_discord_servers.map_id', '=', 'map_discord_grants.map_id')
+                    ->on('map_discord_servers.guild_id', '=', 'map_discord_grants.guild_id');
+            })
+            ->where('map_discord_servers.status', MapDiscordServer::Active)
+            ->orderByRaw("CASE map_discord_servers.permission WHEN 'member' THEN 1 WHEN 'viewer' THEN 2 ELSE 3 END")
+            ->value('map_discord_servers.permission');
+
+        return match ($value) {
+            Permission::Viewer->value => Permission::Viewer,
+            Permission::Member->value => Permission::Member,
+            default => null,
+        };
     }
 }

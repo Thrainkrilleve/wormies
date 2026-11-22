@@ -184,18 +184,25 @@ final class DiscordAccessBot
         return 'present';
     }
 
-    public function registerLinkCommand(): void
+    public function registerCommands(): void
     {
         $applicationId = $this->applicationId();
         if ($applicationId === null) {
             throw new DiscordConfigurationException('DISCORD_ACCESS_APPLICATION_ID is not configured.');
         }
 
-        $this->request()->put('/applications/'.$applicationId.'/commands', [[
-            'name' => 'link',
-            'description' => 'Link this Discord account to your Wormhole Systems user',
-            'type' => 1,
-        ]])->throw();
+        $this->request()->put('/applications/'.$applicationId.'/commands', [
+            [
+                'name' => 'link',
+                'description' => 'Link this Discord account to your Wormhole Systems user',
+                'type' => 1,
+            ],
+            [
+                'name' => 'unlink',
+                'description' => 'Remove the link between this Discord account and Wormhole Systems',
+                'type' => 1,
+            ],
+        ])->throw();
     }
 
     public function redirectUri(): string

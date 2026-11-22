@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\Permission;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $guild_id
  * @property string|null $guild_name
  * @property string $status
+ * @property string $permission
  * @property CarbonImmutable|null $pending_expires_at
  * @property string|null $pending_state_hash
  * @property int $unmatched_count
@@ -40,6 +42,15 @@ final class MapDiscordServer extends Model
         return $this->status === self::Pending
             && $this->pending_expires_at instanceof CarbonImmutable
             && $this->pending_expires_at->isFuture();
+    }
+
+    public function derivedPermission(): ?Permission
+    {
+        return match ($this->permission) {
+            Permission::Viewer->value => Permission::Viewer,
+            Permission::Member->value => Permission::Member,
+            default => null,
+        };
     }
 
     public function accessState(): string

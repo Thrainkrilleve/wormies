@@ -94,6 +94,7 @@ it('grants viewer access from a linked member without changing hand edited rows'
         'map_id' => $map->id,
         'guild_id' => '423456789012345678',
         'status' => MapDiscordServer::Active,
+        'permission' => Permission::Viewer->value,
     ]);
 
     app(DiscordAccessSync::class)->onMemberJoin('423456789012345678', '323456789012345678');

@@ -40,10 +40,6 @@ final class TrackingData extends Data
     {
         $map = Map::query()->whereRelation('mapSolarsystems', 'id', $request->input('from_map_solarsystem_id'))->firstOrFail();
 
-        return $map->mapAccessors()
-            ->notExpired()
-            ->grantedTo($user)
-            ->whereIn('permission', [Permission::Member, Permission::Manager])
-            ->exists();
+        return $map->grantsAtLeast($user, Permission::Member);
     }
 }

@@ -8,6 +8,7 @@ use App\Actions\MapAccess\CreateMapAccessAction;
 use App\Actions\MapAccess\DeleteMapAccessAction;
 use App\Actions\MapAccess\UpdateMapAccessAction;
 use App\DiscordAccess\DiscordAccessBot;
+use App\DiscordAccess\DiscordAccessRoster;
 use App\DiscordAccess\DiscordAccessState;
 use App\Enums\Permission;
 use App\Http\Requests\UpdateMapAccessRequest;
@@ -33,7 +34,7 @@ final class MapAccessController extends Controller
     /**
      * @throws Throwable
      */
-    public function show(Request $request, Map $map, DiscordAccessBot $bot): Response
+    public function show(Request $request, Map $map, DiscordAccessBot $bot, DiscordAccessRoster $roster): Response
     {
         Gate::authorize('manageAccess', $map);
 
@@ -104,8 +105,12 @@ final class MapAccessController extends Controller
                 'status' => $discordServer instanceof MapDiscordServer ? $discordServer->accessState() : null,
                 'guild_name' => $discordServer?->guild_name,
                 'unmatched_count' => $discordServer instanceof MapDiscordServer ? $discordServer->unmatched_count : 0,
+                'permission' => $discordServer?->derivedPermission()?->value,
                 'invite_url' => $this->discordInviteUrl($discordServer, $bot),
                 'error' => $this->discordAccessError(),
+                'roster' => $discordServer instanceof MapDiscordServer && $discordServer->status === MapDiscordServer::Active
+                    ? $roster->for($map, $discordServer, $request)
+                    : null,
             ],
         ]);
     }
