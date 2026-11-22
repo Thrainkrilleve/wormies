@@ -10,7 +10,6 @@ use App\Enums\MapLayout;
 use App\Enums\Permission;
 use App\Traits\HasSlug;
 use Carbon\CarbonImmutable;
-use Context;
 use Database\Factories\MapFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -18,8 +17,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
-use function sprintf;
 
 /**
  * A player map with solar systems and their connections.
@@ -210,21 +207,19 @@ final class Map extends Model
      */
     public function getUserPermission(User $user): ?Permission
     {
-        return Context::remember(sprintf('map_%d_user_%d_permission', $this->id, $user->id), function () use ($user): ?Permission {
-            $permission = $this->mapAccessors()
-                ->notExpired()
-                ->grantedTo($user)
-                ->orderByRaw("CASE WHEN permission = 'manager' THEN 1 WHEN permission = 'member' THEN 2 WHEN permission = 'viewer' THEN 3 ELSE 4 END")
-                ->first()?->permission;
+        $permission = $this->mapAccessors()
+            ->notExpired()
+            ->grantedTo($user)
+            ->orderByRaw("CASE WHEN permission = 'manager' THEN 1 WHEN permission = 'member' THEN 2 WHEN permission = 'viewer' THEN 3 ELSE 4 END")
+            ->first()?->permission;
 
-            if ($permission instanceof Permission) {
-                return $permission;
-            }
+        if ($permission instanceof Permission) {
+            return $permission;
+        }
 
-            return $this->discordGrants()->where('user_id', $user->id)->exists()
-                ? Permission::Viewer
-                : null;
-        });
+        return $this->discordGrants()->where('user_id', $user->id)->exists()
+            ? Permission::Viewer
+            : null;
     }
 
     /**
