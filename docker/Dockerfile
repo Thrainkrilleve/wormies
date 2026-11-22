@@ -51,6 +51,16 @@ WORKDIR /app
 # Copy the entire Laravel application code
 COPY . /app
 
+# .dockerignore omits storage/. Laravel resolves the compiled view path with
+# realpath(), which is false until the directory exists, so Artisan commands
+# that boot the view compiler fail before the entrypoint can create it.
+RUN mkdir -p \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache/data \
+    storage/logs \
+    bootstrap/cache
+
 # Install Composer dependencies
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && composer install --no-dev --prefer-dist --optimize-autoloader
