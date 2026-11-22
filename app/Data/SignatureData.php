@@ -55,15 +55,21 @@ final class SignatureData extends Data
             return false;
         }
 
-        $map_connection = MapConnection::query()->find($signature->map_connection_id);
+        $system = $signature->mapSolarsystem;
 
-        if (! $map_connection instanceof MapConnection) {
+        $requested = request()->input('map_connection_id', $signature->map_connection_id);
+
+        if ($requested === null || $requested === '') {
             return true;
         }
-        if ($map_connection->fromMapSolarsystem()->is($signature->mapSolarsystem)) {
-            return true;
+
+        $connection = MapConnection::query()->find((int) $requested);
+
+        if (! $connection instanceof MapConnection || $connection->map_id !== $system->map_id) {
+            return false;
         }
 
-        return $map_connection->toMapSolarsystem()->is($signature->mapSolarsystem);
+        return $connection->from_map_solarsystem_id === $system->id
+            || $connection->to_map_solarsystem_id === $system->id;
     }
 }

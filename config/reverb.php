@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+$reverbAllowedOrigins = array_values(array_unique(array_filter([
+    mb_rtrim((string) env('APP_URL', ''), '/'),
+    ...array_map(
+        trim(...),
+        array_filter(explode(',', (string) env('REVERB_ALLOWED_ORIGINS', ''))),
+    ),
+], fn (string $origin): bool => $origin !== '')));
+
 return [
 
     /*
@@ -84,7 +92,7 @@ return [
                     'scheme' => env('REVERB_SCHEME', 'https'),
                     'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 ],
-                'allowed_origins' => ['*'],
+                'allowed_origins' => $reverbAllowedOrigins === [] ? ['*'] : $reverbAllowedOrigins,
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
                 'max_message_size' => env('REVERB_APP_MAX_MESSAGE_SIZE', 10_000),

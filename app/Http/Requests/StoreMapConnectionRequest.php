@@ -28,7 +28,7 @@ final class StoreMapConnectionRequest extends FormRequest
             ->whereHas('mapSolarsystems', fn ($query) => $query->whereIn('id', [$this->integer('from_map_solarsystem_id'), $this->integer('to_map_solarsystem_id')]))
             ->whereDoesntHave('mapAccessors', function (Builder $query) use ($user): void {
                 assert($query instanceof MapAccessBuilder);
-                $query->notExpired()->whereIn('accessible_id', $user->getAccessibleIds())->whereIn('permission', [Permission::Member, Permission::Manager]);
+                $query->notExpired()->grantedTo($user)->whereIn('permission', [Permission::Member, Permission::Manager]);
             })
             ->doesntExist();
     }

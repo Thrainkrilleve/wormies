@@ -21,20 +21,15 @@ final class MapPolicy
             return true;
         }
 
-        if ($map->share_token !== null) {
-            $providedToken = request()->query('share_token')
-                ?? session("map_share_token_{$map->id}");
-
-            if ($providedToken === $map->share_token) {
-                return true;
-            }
+        if ($this->shareTokenAllows($map)) {
+            return true;
         }
 
         if (! $user instanceof User) {
             return false;
         }
 
-        return $map->mapAccessors()->notExpired()->whereIn('accessible_id', $user->getAccessibleIds())->exists();
+        return $map->mapAccessors()->notExpired()->grantedTo($user)->exists();
     }
 
     public function viewCharacters(?User $user, Map $map): bool
@@ -97,8 +92,25 @@ final class MapPolicy
 
         return $map->mapAccessors()
             ->notExpired()
-            ->whereIn('accessible_id', $user->getAccessibleIds())
+            ->grantedTo($user)
             ->where('is_owner', true)
             ->exists();
+    }
+
+    private function shareTokenAllows(Map $map): bool
+    {
+        $expected = $map->share_token;
+
+        if (! is_string($expected) || $expected === '') {
+            return false;
+        }
+
+        $provided = request()->query('share_token') ?? session("map_share_token_{$map->id}");
+
+        if (! is_string($provided) || $provided === '') {
+            return false;
+        }
+
+        return hash_equals($expected, $provided);
     }
 }

@@ -7,36 +7,40 @@ namespace App\Jobs\Characters;
 use App\Actions\MapConnections\RecordMapConnectionJumpAction;
 use App\Actions\ShipHistories\UpdateShipHistoryAction;
 use App\Models\CharacterStatus;
+use App\Services\Esi\CharacterEsiClient;
 use Illuminate\Bus\Batchable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
-use NicolasKion\Esi\DTO\Location;
-use NicolasKion\Esi\DTO\Ship;
-use NicolasKion\Esi\Esi;
+use NicolasKion\Esi\DTO\EsiResult;
 use Throwable;
 
-final class UpdateCharacterLocation implements ShouldQueue
+final class UpdateCharacterLocation implements ShouldBeUnique, ShouldQueue
 {
     use Batchable, Queueable;
 
-    /**
-     * Create a new job instance.
-     */
+    public int $timeout = 25;
+
+    public int $tries = 2;
+
+    public int $uniqueFor = 30;
+
     public function __construct(public int $character_status_id)
     {
-        //
+        $this->onQueue('tracking');
+    }
+
+    public function uniqueId(): string
+    {
+        return (string) $this->character_status_id;
     }
 
     /**
-     * Execute the job.
-     *
      * @throws Throwable
-     * @throws ConnectionException
      */
-    public function handle(Esi $esi, UpdateShipHistoryAction $action, RecordMapConnectionJumpAction $recordJumpAction): void
+    public function handle(CharacterEsiClient $esi, UpdateShipHistoryAction $action, RecordMapConnectionJumpAction $recordJumpAction): void
     {
         $characterStatus = CharacterStatus::query()->find($this->character_status_id);
 
@@ -44,26 +48,35 @@ final class UpdateCharacterLocation implements ShouldQueue
             return;
         }
 
-        $location_request = $esi->getLocation($characterStatus->character);
+        $locationRequest = $esi->location($characterStatus->character);
 
-        if ($location_request->failed()) {
-            Log::info(sprintf('Failed to fetch location for character %d', $characterStatus->character_id), (array) $location_request);
-
-            return;
-        }
-
-        $ship_request = $esi->getShip($characterStatus->character);
-
-        if ($ship_request->failed()) {
-            Log::info(sprintf('Failed to fetch ship for character %d', $characterStatus->character_id), (array) $ship_request);
+        if ($this->characterIsOffline($locationRequest)) {
+            $characterStatus->update([
+                'is_online' => false,
+                'location_last_checked_at' => now(),
+                'event_queued_at' => now(),
+            ]);
 
             return;
         }
 
-        $location = $location_request->data;
-        $ship = $ship_request->data;
+        if ($locationRequest->failed()) {
+            $characterStatus->update(['location_last_checked_at' => now()]);
 
-        $previous_solarsystem_id = $characterStatus->solarsystem_id;
+            return;
+        }
+
+        $shipRequest = $esi->ship($characterStatus->character);
+
+        if ($shipRequest->failed()) {
+            $characterStatus->update(['location_last_checked_at' => now()]);
+
+            return;
+        }
+
+        $location = $locationRequest->data;
+        $ship = $shipRequest->data;
+        $previousSolarsystemId = $characterStatus->solarsystem_id;
 
         $characterStatus->update([
             'solarsystem_id' => $location->solar_system_id,
@@ -74,56 +87,67 @@ final class UpdateCharacterLocation implements ShouldQueue
             'ship_item_id' => $ship->ship_item_id,
         ]);
 
-        $action->handle(
-            $characterStatus->character_id,
-            $ship->ship_item_id,
-            $ship->ship_type_id,
-            $ship->ship_name
-        );
+        $changed = $characterStatus->wasChanged();
 
-        if ($characterStatus->wasChanged()) {
-            // Mark that event should be dispatched
-            $characterStatus->update(['event_queued_at' => now()]);
+        try {
+            $action->handle(
+                $characterStatus->character_id,
+                $ship->ship_item_id,
+                $ship->ship_type_id,
+                $ship->ship_name
+            );
+        } catch (Throwable $exception) {
+            Log::warning(sprintf('Failed to update ship history for character %d', $characterStatus->character_id), [
+                'exception' => $exception->getMessage(),
+            ]);
         }
 
-        $this->recordJump($recordJumpAction, $characterStatus, $previous_solarsystem_id, $location, $ship);
+        $characterStatus->update([
+            'location_last_checked_at' => now(),
+            ...(CharacterEsiClient::shouldBroadcast($characterStatus->id, $changed) ? ['event_queued_at' => now()] : []),
+        ]);
+
+        $this->recordJump($recordJumpAction, $characterStatus, $previousSolarsystemId, $location->solar_system_id, $ship->ship_type_id, $ship->ship_name);
     }
 
     /**
-     * Get the middleware the job should pass through.
-     *
      * @return array<int, object>
      */
     public function middleware(): array
     {
-        return [new WithoutOverlapping((string) $this->character_status_id)->dontRelease()->expireAfter(60)];
+        return [new WithoutOverlapping('character:'.$this->character_status_id)->dontRelease()->expireAfter(30)];
     }
 
-    /**
-     * A jump-log failure must never break location polling.
-     */
+    private function characterIsOffline(EsiResult $result): bool
+    {
+        return $result->failed()
+            && $result->error?->code === 400
+            && str_contains(mb_strtolower((string) $result->error->body), 'not online');
+    }
+
     private function recordJump(
         RecordMapConnectionJumpAction $recordJumpAction,
         CharacterStatus $characterStatus,
-        ?int $previous_solarsystem_id,
-        Location $location,
-        Ship $ship,
+        ?int $previousSolarsystemId,
+        int $solarSystemId,
+        int $shipTypeId,
+        string $shipName,
     ): void {
-        if ($previous_solarsystem_id === null || $previous_solarsystem_id === $location->solar_system_id) {
+        if ($previousSolarsystemId === null || $previousSolarsystemId === $solarSystemId) {
             return;
         }
 
         try {
             $recordJumpAction->handle(
                 $characterStatus->character_id,
-                $previous_solarsystem_id,
-                $location->solar_system_id,
-                $ship->ship_type_id,
-                $ship->ship_name,
+                $previousSolarsystemId,
+                $solarSystemId,
+                $shipTypeId,
+                $shipName,
             );
         } catch (Throwable $exception) {
             Log::warning(sprintf('Failed to record connection jump for character %d', $characterStatus->character_id), [
-                'exception' => $exception,
+                'exception' => $exception->getMessage(),
             ]);
         }
     }

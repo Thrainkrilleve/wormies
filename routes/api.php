@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('sovereignties', [SovereigntyController::class, 'index'])->name('api.sovereignties.index');
 
-Route::middleware('auth:sanctum')->name('api.')->group(function () {
+Route::middleware(['auth:sanctum', 'throttle:api'])->name('api.')->group(function () {
     Route::resource('maps', MapController::class)->only(['update', 'show', 'index']);
     Route::resource('map-solarsystems', MapSolarsystemController::class)->only(['show', 'update', 'store', 'destroy']);
 });

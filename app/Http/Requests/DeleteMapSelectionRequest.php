@@ -26,7 +26,7 @@ final class DeleteMapSelectionRequest extends FormRequest
             ->whereHas('mapSolarsystems', fn (Builder $query) => $query->whereIn('id', $this->array('map_solarsystem_ids')))
             ->whereDoesntHave('mapAccessors', function (Builder $query) use ($user): void {
                 assert($query instanceof MapAccessBuilder);
-                $query->notExpired()->whereIn('accessible_id', $user->getAccessibleIds())->whereIn('permission', [Permission::Member, Permission::Manager]);
+                $query->notExpired()->grantedTo($user)->whereIn('permission', [Permission::Member, Permission::Manager]);
             })
             ->doesntExist();
     }

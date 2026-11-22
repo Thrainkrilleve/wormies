@@ -42,7 +42,7 @@ final class TrackingData extends Data
 
         return $map->mapAccessors()
             ->notExpired()
-            ->whereIn('accessible_id', $user->getAccessibleIds())
+            ->grantedTo($user)
             ->whereIn('permission', [Permission::Member, Permission::Manager])
             ->exists();
     }

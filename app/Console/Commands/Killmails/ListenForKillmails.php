@@ -6,6 +6,7 @@ namespace App\Console\Commands\Killmails;
 
 use App\Actions\EnsureOrganisationExistsAction;
 use App\Console\Commands\AppCommand;
+use App\Enums\MapAlertType;
 use App\Enums\zKillboardCacheKey;
 use App\Events\Killmails\KillmailReceivedEvent;
 use App\Http\Integrations\zKillboard\DTO\R2Z2Killmail;
@@ -13,11 +14,14 @@ use App\Http\Integrations\zKillboard\zKillboard;
 use App\Jobs\MapAlerts\EvaluateKillmailAlertsJob;
 use App\Models\Killmail;
 use App\Models\Map;
+use App\Models\MapAlert;
 use App\Models\Solarsystem;
 use App\Models\Type;
 use Date;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 use function sprintf;
@@ -41,6 +45,8 @@ final class ListenForKillmails extends AppCommand
 
     private bool $should_keep_running = true;
 
+    private int $failure_streak = 0;
+
     public function __construct(
         private readonly zKillboard $zKillboard,
         private readonly EnsureOrganisationExistsAction $ensureOrganisationExistsAction,
@@ -55,9 +61,16 @@ final class ListenForKillmails extends AppCommand
     {
         $this->trap([SIGTERM, SIGQUIT], $this->handleStop(...));
 
-        $restartSignal = Cache::get(zKillboardCacheKey::Restart);
+        $restartSignal = Cache::get(zKillboardCacheKey::Restart->value);
 
-        $sequence = $this->getStartingSequence();
+        try {
+            $sequence = $this->resolveStartingSequence();
+        } catch (Throwable $exception) {
+            $this->error(sprintf('Could not determine a starting R2Z2 sequence: %s', $exception->getMessage()));
+
+            return self::FAILURE;
+        }
+
         $this->info(sprintf('Starting R2Z2 polling from sequence %d', $sequence));
 
         while ($this->should_keep_running) {
@@ -66,29 +79,31 @@ final class ListenForKillmails extends AppCommand
 
                 return self::SUCCESS;
             }
+
+            $this->rememberSequence($sequence);
+
             try {
                 $killmail = $this->zKillboard->getKillmailBySequence($sequence);
-            } catch (Throwable $e) {
-                $this->error(sprintf('Error fetching sequence %d: %s', $sequence, $e->getMessage()));
-                usleep($this->catchup_delay_ms * 1_000);
+            } catch (Throwable $exception) {
+                $this->failure_streak++;
+                $this->error(sprintf('Error fetching sequence %d: %s', $sequence, $exception->getMessage()));
+                $this->pause(failed: true);
 
                 continue;
             }
 
             if (! $killmail instanceof R2Z2Killmail) {
-                // 404 or empty — we've caught up, wait and retry same sequence
-                usleep($this->catchup_delay_ms * 1_000);
+                $this->failure_streak = 0;
+                $this->pause(failed: false, caughtUp: true);
 
                 continue;
             }
 
+            $this->failure_streak = 0;
             $this->processKillmail($killmail);
-
-            // Advance sequence
             $sequence = $killmail->sequence_id + 1;
-
-            // Brief delay between active polls to respect rate limits
-            usleep($this->poll_delay_ms * 1_000);
+            $this->rememberSequence($sequence);
+            $this->pause(failed: false);
         }
 
         $this->info('Stopped listening for killmails.');
@@ -98,22 +113,77 @@ final class ListenForKillmails extends AppCommand
 
     private function shouldRestart(mixed $restartSignal): bool
     {
-        return Cache::get(zKillboardCacheKey::Restart) !== $restartSignal;
+        return Cache::get(zKillboardCacheKey::Restart->value) !== $restartSignal;
     }
 
-    private function getStartingSequence(): int
+    /**
+     * @throws Throwable
+     */
+    private function resolveStartingSequence(): int
     {
-        // No cached sequence — start from the current latest
-        try {
-            $latest = $this->zKillboard->getLatestSequence();
-            $this->info(sprintf('No cached sequence found, starting from latest: %d', $latest));
+        $cached = Cache::get(zKillboardCacheKey::Sequence->value);
 
-            return $latest;
-        } catch (Throwable $e) {
-            $this->error(sprintf('Could not fetch latest sequence: %s', $e->getMessage()));
+        if (is_numeric($cached) && (int) $cached > 0) {
+            $this->info(sprintf('Resuming R2Z2 from cached sequence %d', (int) $cached));
 
-            return 0;
+            return (int) $cached;
         }
+
+        $latest = $this->fetchLatestSequence();
+
+        if ($latest < 1) {
+            throw new RuntimeException('Latest R2Z2 sequence was empty. Refusing to start from 0.');
+        }
+
+        $this->info(sprintf('No cached sequence found, starting from latest: %d', $latest));
+        $this->rememberSequence($latest);
+
+        return $latest;
+    }
+
+    /**
+     * @throws Throwable
+     */
+    private function fetchLatestSequence(): int
+    {
+        $attempts = 0;
+        $last = new RuntimeException('Could not fetch the latest R2Z2 sequence.');
+
+        while ($attempts < 3) {
+            $attempts++;
+
+            try {
+                return $this->zKillboard->getLatestSequence();
+            } catch (Throwable $exception) {
+                $last = $exception;
+                $this->error(sprintf('Could not fetch latest sequence (attempt %d): %s', $attempts, $exception->getMessage()));
+                usleep($this->catchup_delay_ms * 1_000);
+            }
+        }
+
+        throw $last;
+    }
+
+    private function rememberSequence(int $sequence): void
+    {
+        if ($sequence < 1) {
+            return;
+        }
+
+        Cache::forever(zKillboardCacheKey::Sequence->value, $sequence);
+    }
+
+    private function pause(bool $failed, bool $caughtUp = false): void
+    {
+        if ($failed) {
+            $multiplier = 2 ** min($this->failure_streak - 1, 4);
+            $delay = min(60_000, $this->catchup_delay_ms * max(1, $multiplier));
+            usleep($delay * 1_000);
+
+            return;
+        }
+
+        usleep(($caughtUp ? $this->catchup_delay_ms : $this->poll_delay_ms) * 1_000);
     }
 
     private function processKillmail(R2Z2Killmail $killmail): void
@@ -153,7 +223,9 @@ final class ListenForKillmails extends AppCommand
 
         $this->notifyMaps($stored);
 
-        EvaluateKillmailAlertsJob::dispatch($stored->id);
+        if ($this->hasActiveKillmailAlerts()) {
+            EvaluateKillmailAlertsJob::dispatch($stored->id);
+        }
     }
 
     private function notifyMaps(Killmail $killmail): void
@@ -188,7 +260,7 @@ final class ListenForKillmails extends AppCommand
             callback: fn () => Type::query()->find($killmail->getVictimShipTypeId())
         );
 
-        $this->info(sprintf(
+        $message = sprintf(
             '[seq:%d] Killmail %d: %s destroyed in %s at %s. https://zkillboard.com/kill/%d/',
             $killmail->sequence_id,
             $killmail->killmail_id,
@@ -196,7 +268,28 @@ final class ListenForKillmails extends AppCommand
             $solarsystem->name ?? 'Unknown System',
             $killmail->getKillmailTime() ?? 'unknown time',
             $killmail->killmail_id
-        ));
+        );
+
+        $systemId = $killmail->getSolarSystemId();
+        if ($systemId >= 31_000_000 && $systemId < 32_000_000) {
+            $this->info($message);
+
+            return;
+        }
+
+        Log::debug($message);
+    }
+
+    private function hasActiveKillmailAlerts(): bool
+    {
+        return (bool) Cache::remember(
+            'killmail-alerts:active',
+            30,
+            fn (): bool => MapAlert::query()
+                ->where('type', MapAlertType::Killmail)
+                ->where('is_active', true)
+                ->exists(),
+        );
     }
 
     private function handleStop(int $signal): void

@@ -193,7 +193,7 @@ final class Map extends Model
     {
         return Context::remember(sprintf('map_%d_user_%d_permission', $this->id, $user->id), fn () => $this->mapAccessors()
             ->notExpired()
-            ->whereIn('accessible_id', $user->getAccessibleIds())
+            ->grantedTo($user)
             ->orderByRaw("CASE WHEN permission = 'manager' THEN 1 WHEN permission = 'member' THEN 2 WHEN permission = 'viewer' THEN 3 ELSE 4 END")
             ->first()?->permission
         );

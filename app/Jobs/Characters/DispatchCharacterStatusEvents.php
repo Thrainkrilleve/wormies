@@ -12,43 +12,58 @@ use App\Models\Map;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 
 final class DispatchCharacterStatusEvents implements ShouldQueue
 {
     use Queueable;
+
+    public int $timeout = 25;
+
+    public int $tries = 2;
+
+    public function __construct()
+    {
+        $this->onQueue('tracking');
+    }
 
     /**
      * Execute the job.
      */
     public function handle(): void
     {
-        // Get all characters where events need to be dispatched
-        $updated_character_ids = CharacterStatus::query()
-            ->whereNotNull('event_queued_at')
-            ->pluck('character_id');
+        $updatedCharacterIds = DB::transaction(function () {
+            $rows = CharacterStatus::query()
+                ->whereNotNull('event_queued_at')
+                ->lockForUpdate()
+                ->get(['id', 'character_id']);
 
-        if ($updated_character_ids->isEmpty()) {
+            if ($rows->isEmpty()) {
+                return collect();
+            }
+
+            CharacterStatus::query()
+                ->whereIn('id', $rows->pluck('id'))
+                ->update(['event_queued_at' => null]);
+
+            return $rows->pluck('character_id')->unique()->values();
+        });
+
+        if ($updatedCharacterIds->isEmpty()) {
             return;
         }
-
-        // Reset the event_queued_at for processed characters
-        CharacterStatus::query()
-            ->whereNotNull('event_queued_at')
-            ->update(['event_queued_at' => null]);
 
         Map::query()
             ->whereHas('mapUserSettings', fn (Builder $query) => $query
                 ->where('tracking_allowed', true)
-                ->whereHas('user.characters', fn (Builder $query) => $query->whereIn('id', $updated_character_ids))
+                ->whereHas('user.characters', fn (Builder $query) => $query->whereIn('id', $updatedCharacterIds))
             )
             ->select('maps.id')
             ->lazy()
             ->each(fn (Map $map) => CharacterStatusUpdatedEvent::dispatch($map->id));
 
-        // Notify each owning user directly so their character list refreshes even
-        // for characters that are not on any map they are currently viewing.
         Character::query()
-            ->whereIn('id', $updated_character_ids)
+            ->whereIn('id', $updatedCharacterIds)
             ->whereNotNull('user_id')
             ->pluck('user_id')
             ->unique()

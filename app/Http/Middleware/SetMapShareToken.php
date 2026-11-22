@@ -19,13 +19,16 @@ final class SetMapShareToken
     public function handle(Request $request, Closure $next): Response
     {
         $shareToken = $request->query('share_token');
+        $map = $request->route('map');
 
-        if (is_string($shareToken) && $shareToken !== '') {
-            $map = $request->route('map');
+        if (! is_string($shareToken) || $shareToken === '' || ! $map instanceof Map) {
+            return $next($request);
+        }
 
-            if ($map instanceof Map) {
-                $request->session()->put("map_share_token_{$map->id}", $shareToken);
-            }
+        $expected = $map->share_token;
+
+        if (is_string($expected) && $expected !== '' && hash_equals($expected, $shareToken)) {
+            $request->session()->put("map_share_token_{$map->id}", $shareToken);
         }
 
         return $next($request);

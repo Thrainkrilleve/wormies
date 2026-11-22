@@ -54,7 +54,6 @@ final class AllianceAuthController extends Controller
             Log::warning('Alliance Auth OAuth callback denied or returned error', [
                 'error' => $error,
                 'error_description' => $errorDesc,
-                'query' => $request->all(),
             ]);
 
             $message = $errorDesc !== ''

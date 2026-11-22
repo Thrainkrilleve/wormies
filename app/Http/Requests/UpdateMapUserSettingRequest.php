@@ -13,6 +13,7 @@ use App\Enums\RemovableCard;
 use App\Enums\RoutePreference;
 use App\Models\Map;
 use App\Models\User;
+use App\Policies\MapPolicy;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Container\Attributes\RouteParameter;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -23,15 +24,11 @@ final class UpdateMapUserSettingRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
-     * Authenticated users must have view access to the map; guests may only update public maps.
+     * Guests and members must pass the map view policy, including a share token when the map is private.
      */
     public function authorize(#[RouteParameter('map')] Map $map, #[CurrentUser] ?User $user): bool
     {
-        if (! $user instanceof User) {
-            return $map->isPubliclyAccessible();
-        }
-
-        return $user->can('view', $map);
+        return app(MapPolicy::class)->view($user, $map);
     }
 
     /**

@@ -57,31 +57,31 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index'])->name('landing')->middleware('guest');
 Route::get('documentation/{path?}', [DocumentationController::class, 'index'])->where('path', '.*')->name('documentation');
-Route::get('login', [LoginController::class, 'show'])->name('login');
-Route::get('auth', [AuthController::class, 'show'])->name('auth');
+Route::get('login', [LoginController::class, 'show'])->middleware('throttle:auth')->name('login');
+Route::get('auth', [AuthController::class, 'show'])->middleware('throttle:auth')->name('auth');
 // Adding a character/scopes to an existing account must stay on Alliance Auth
 // when it's configured, so that account's ESI tokens stay tracked there and
 // don't drift out of sync with what AA itself knows about (see
 // AllianceAuthService::syncUserEsiTokens()). A fresh, unauthenticated login
 // has no existing AA-linked account to keep in sync, so it goes straight to
 // EveController's native EVE SSO instead - no Alliance Auth account required.
-Route::get('eve', function (\Illuminate\Http\Request $request, EveController $controller) {
+Route::get('eve', function (Illuminate\Http\Request $request, EveController $controller) {
     if ($request->query('add_to_account') && config('services.allianceauth.enabled')) {
         return redirect()->route('allianceauth.redirect', $request->query());
     }
 
     return $controller->show($request);
-})->name('eve.show');
-Route::get('eve/callback', [EveController::class, 'store'])->name('eve.store');
+})->middleware('throttle:auth')->name('eve.show');
+Route::get('eve/callback', [EveController::class, 'store'])->middleware('throttle:auth')->name('eve.store');
 // Dedicated entry point for a pilot who is already logged in via native EVE
 // SSO to add another character to that same account. Deliberately bypasses
 // the add_to_account guard above - that guard exists to keep an *AA-linked*
 // account's scope-grant flows (e.g. MapScopeController) on Alliance Auth, but
 // a native-only account has no AA identity to keep in sync in the first
 // place, so sending it through AA here would force an unwanted AA login.
-Route::get('eve/add-character', [EveController::class, 'show'])->name('eve.add-character');
-Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->name('allianceauth.redirect');
-Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->name('allianceauth.callback');
+Route::get('eve/add-character', [EveController::class, 'show'])->middleware('throttle:auth')->name('eve.add-character');
+Route::get('auth/allianceauth', [AllianceAuthController::class, 'redirect'])->middleware('throttle:auth')->name('allianceauth.redirect');
+Route::get('auth/allianceauth/callback', [AllianceAuthController::class, 'callback'])->middleware('throttle:auth')->name('allianceauth.callback');
 Route::get('manifest.webmanifest', function () {
     $path = public_path('build/manifest.webmanifest');
     if (file_exists($path)) {

@@ -4,11 +4,8 @@ on:
   push:
     branches:
       - development
-      - main
   pull_request:
-    branches:
-      - development
-      - main
+  workflow_call:
 
 concurrency:
   group: tests-${{ github.ref }}
