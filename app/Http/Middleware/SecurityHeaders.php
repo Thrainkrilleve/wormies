@@ -7,6 +7,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 final class SecurityHeaders
@@ -17,6 +18,7 @@ final class SecurityHeaders
     public function handle(Request $request, Closure $next): Response
     {
         $nonce = mb_rtrim(base64_encode(random_bytes(16)), '=');
+        Vite::useCspNonce($nonce);
         View::share('cspNonce', $nonce);
 
         $response = $next($request);
