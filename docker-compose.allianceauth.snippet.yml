@@ -60,6 +60,7 @@ x-wormholesystems-base: &wormholesystems-base
     REVERB_SCHEME: http
     REVERB_BEHIND_PROXY: "true"
     BROADCAST_CONNECTION: reverb
+    SESSION_SECURE_COOKIE: "true"
     VITE_REVERB_APP_KEY: "${WS_REVERB_KEY:-${AA_SECRET_KEY}}"
     VITE_REVERB_HOST: "${WS_REVERB_HOST:-ws.wormhole.${DOMAIN}}"
     VITE_REVERB_PORT: "${WS_REVERB_PORT_CLIENT:-443}"
@@ -97,7 +98,8 @@ x-wormholesystems-base: &wormholesystems-base
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:80/up"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 120s
     depends_on:
       wormholesystems_mysql:
         condition: service_healthy
@@ -114,7 +116,8 @@ x-wormholesystems-base: &wormholesystems-base
       test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 120s
     depends_on:
       wormholesystems_app:
         condition: service_healthy
@@ -122,7 +125,11 @@ x-wormholesystems-base: &wormholesystems-base
   wormholesystems_queue:
     <<: *wormholesystems-base
     container_name: wormholesystems-queue
-    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    # timeout stays below the database queue retry_after of 90 seconds.
+    # Worker health comes from the image (docker/healthcheck.sh), not the
+    # Caddy admin port. Do not add a compose healthcheck unless it checks
+    # this process.
+    command: php artisan queue:work --sleep=3 --tries=3 --timeout=60 --memory=256 --max-time=3600 --max-jobs=1000
     depends_on:
       wormholesystems_app:
         condition: service_healthy

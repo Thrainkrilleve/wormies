@@ -26,7 +26,7 @@ final readonly class AllianceAuthService
 
     public function getBaseUrl(): string
     {
-        return rtrim((string) config('services.allianceauth.base_url', 'https://auth.r3v-w.space'), '/');
+        return rtrim((string) config('services.allianceauth.base_url', 'https://auth.example.com'), '/');
     }
 
     public function getInternalUrl(): string

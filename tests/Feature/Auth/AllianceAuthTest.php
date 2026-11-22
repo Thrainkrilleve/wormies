@@ -15,10 +15,10 @@ use NicolasKion\Esi\Esi;
 beforeEach(function () {
     Bus::fake();
 
-    config()->set('services.allianceauth.base_url', 'https://auth.r3v-w.space');
+    config()->set('services.allianceauth.base_url', 'https://auth.example.com');
     config()->set('services.allianceauth.client_id', 'test-client-id');
     config()->set('services.allianceauth.client_secret', 'test-client-secret');
-    config()->set('services.allianceauth.redirect', 'https://wormhole.r3v-w.space/auth/allianceauth/callback');
+    config()->set('services.allianceauth.redirect', 'https://wormhole.example.com/auth/allianceauth/callback');
     config()->set('access.allowed_affiliation_ids', []);
 });
 
@@ -37,7 +37,7 @@ it('redirects to the Alliance Auth authorization URL with valid state', function
     $response->assertRedirect();
     $targetUrl = $response->headers->get('Location');
 
-    expect($targetUrl)->toContain('https://auth.r3v-w.space/o/authorize/?')
+    expect($targetUrl)->toContain('https://auth.example.com/o/authorize/?')
         ->and($targetUrl)->toContain('client_id=test-client-id')
         ->and($targetUrl)->toContain('response_type=code')
         ->and(session('allianceauth_state'))->not()->toBeEmpty();
@@ -60,12 +60,12 @@ it('logs in user via Alliance Auth callback when authorized', function () {
     session(['allianceauth_state' => 'test-state']);
 
     Http::fake([
-        'https://auth.r3v-w.space/o/token/' => Http::response([
+        'https://auth.example.com/o/token/' => Http::response([
             'access_token' => 'mocked-aa-access-token',
             'token_type' => 'Bearer',
             'expires_in' => 3600,
         ]),
-        'https://auth.r3v-w.space/o/userinfo/' => Http::response([
+        'https://auth.example.com/o/userinfo/' => Http::response([
             'sub' => '1001',
             'character_id' => 8888,
             'name' => 'Alliance Pilot',
@@ -95,11 +95,11 @@ it('blocks login if user lacks the required Alliance Auth group', function () {
     session(['allianceauth_state' => 'test-state']);
 
     Http::fake([
-        'https://auth.r3v-w.space/o/token/' => Http::response([
+        'https://auth.example.com/o/token/' => Http::response([
             'access_token' => 'mocked-aa-access-token',
             'token_type' => 'Bearer',
         ]),
-        'https://auth.r3v-w.space/o/userinfo/' => Http::response([
+        'https://auth.example.com/o/userinfo/' => Http::response([
             'sub' => '1001',
             'character_id' => 8888,
             'name' => 'Unauthorized Pilot',
@@ -124,11 +124,11 @@ it('permits login if user has one of the required Alliance Auth groups', functio
     session(['allianceauth_state' => 'test-state']);
 
     Http::fake([
-        'https://auth.r3v-w.space/o/token/' => Http::response([
+        'https://auth.example.com/o/token/' => Http::response([
             'access_token' => 'mocked-aa-access-token',
             'token_type' => 'Bearer',
         ]),
-        'https://auth.r3v-w.space/o/userinfo/' => Http::response([
+        'https://auth.example.com/o/userinfo/' => Http::response([
             'sub' => '1001',
             'character_id' => 8888,
             'name' => 'Authorized Pilot',

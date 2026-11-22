@@ -38,7 +38,7 @@ final class ScopeController extends Controller
         // (openid/profile/email/groups) and silently strips unknown ESI scope names.
         Session::put('redirect_to', route('settings.show', ['section' => 'esi']));
 
-        $baseUrl = rtrim((string) config('services.allianceauth.base_url', 'https://auth.r3v-w.space'), '/');
+        $baseUrl = rtrim((string) config('services.allianceauth.base_url', 'https://auth.example.com'), '/');
         $launchUrl = $baseUrl . '/wormholesystems/launch/';
 
         return redirect()->away($launchUrl);
