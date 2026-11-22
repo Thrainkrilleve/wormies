@@ -157,6 +157,14 @@ x-wormholesystems-base: &wormholesystems-base
       wormholesystems_app:
         condition: service_healthy
 
+  wormholesystems_discord_access:
+    <<: *wormholesystems-base
+    container_name: wormholesystems-discord-access
+    command: php artisan discord:access-listen
+    depends_on:
+      wormholesystems_app:
+        condition: service_healthy
+
 
 # ------------------------------------------------------------------------------
 # PART 3: Add these volumes under your existing "volumes:" section

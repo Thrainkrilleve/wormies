@@ -26,14 +26,14 @@ final readonly class AllianceAuthService
 
     public function getBaseUrl(): string
     {
-        return rtrim((string) config('services.allianceauth.base_url', 'https://auth.example.com'), '/');
+        return mb_rtrim((string) config('services.allianceauth.base_url', 'https://auth.example.com'), '/');
     }
 
     public function getInternalUrl(): string
     {
         $internal = (string) config('services.allianceauth.internal_url');
 
-        return $internal !== '' ? rtrim($internal, '/') : $this->getBaseUrl();
+        return $internal !== '' ? mb_rtrim($internal, '/') : $this->getBaseUrl();
     }
 
     public function getClientId(): string
@@ -54,7 +54,7 @@ final readonly class AllianceAuthService
     public function getAuthorizationUrl(string $state, ?string $extraScopes = null): string
     {
         $baseScopes = (string) config('services.allianceauth.scopes', 'openid profile email groups');
-        $scope = $extraScopes ? trim($baseScopes . ' ' . $extraScopes) : $baseScopes;
+        $scope = $extraScopes ? mb_trim($baseScopes.' '.$extraScopes) : $baseScopes;
 
         $params = http_build_query([
             'response_type' => 'code',
@@ -184,7 +184,7 @@ final readonly class AllianceAuthService
     private function verifyGroupPermissions(array $userInfo): void
     {
         $requiredGroupsRaw = (string) config('services.allianceauth.required_groups', '');
-        if (trim($requiredGroupsRaw) === '') {
+        if (mb_trim($requiredGroupsRaw) === '') {
             return;
         }
 
@@ -351,7 +351,8 @@ final readonly class AllianceAuthService
         \App\Models\DiscordAccount::query()
             ->where('discord_user_id', $discordId)
             ->where('user_id', '!=', $user->id)
-            ->delete();
+            ->get()
+            ->each(fn (\App\Models\DiscordAccount $account) => $account->delete());
 
         $user->discordAccount()->updateOrCreate([], [
             'discord_user_id' => $discordId,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DiscordAccessController from '@/actions/App/Http/Controllers/DiscordAccessController';
 import MapAccessController from '@/actions/App/Http/Controllers/MapAccessController';
 import AccessExpiryPicker from '@/components/access/AccessExpiryPicker.vue';
 import EditIcon from '@/components/icons/EditIcon.vue';
@@ -28,10 +29,16 @@ type TAccessEntity = TSearchEntity & {
     expires_at: string | null;
 };
 
-const { map, entities, entitiesWithAccess } = defineProps<{
+const { map, entities, entitiesWithAccess, discordAccess } = defineProps<{
     map: TMapSummary;
     entities: TSearchEntity[];
     entitiesWithAccess: TAccessEntity[];
+    discordAccess: {
+        status: string | null;
+        guild_name: string | null;
+        unmatched_count: number;
+        invite_url: string | null;
+    };
 }>();
 
 const search = useSearch();
@@ -56,6 +63,39 @@ function toggleAccess(entity: TSearchEntity | TAccessEntity, permission: 'viewer
 <template>
     <SettingsLayout :map="map" title="Access Control" description="Manage who can view and edit this map">
         <div class="space-y-8">
+            <div class="rounded-lg border border-border/50 p-4">
+                <h3 class="text-lg font-semibold">Discord server</h3>
+                <p class="text-sm text-muted-foreground">
+                    Linked members of one Discord server can view this map. Nicknames are ignored. People who have not linked an account are counted, not listed.
+                </p>
+                <p v-if="discordAccess.status === 'active'" class="mt-3 text-sm">
+                    Connected<span v-if="discordAccess.guild_name"> to {{ discordAccess.guild_name }}</span>.
+                    {{ discordAccess.unmatched_count }} unmatched member<span v-if="discordAccess.unmatched_count === 1"> is</span><span v-else>s are</span> not granted access.
+                </p>
+                <p v-else-if="discordAccess.status === 'pending'" class="mt-3 text-sm">Waiting for the access bot to join. The invite expires in 15 minutes.</p>
+                <p v-else class="mt-3 text-sm">No Discord server is connected.</p>
+                <a v-if="discordAccess.invite_url" :href="discordAccess.invite_url" class="mt-3 inline-flex text-sm underline" target="_blank" rel="noreferrer">
+                    Open the bot invite
+                </a>
+                <div class="mt-4 flex gap-2">
+                    <button
+                        v-if="discordAccess.status !== 'active'"
+                        type="button"
+                        class="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground"
+                        @click="router.post(DiscordAccessController.store(map.slug))"
+                    >
+                        Connect a Discord server
+                    </button>
+                    <button
+                        v-if="discordAccess.status === 'active'"
+                        type="button"
+                        class="rounded-md border px-3 py-2 text-sm"
+                        @click="router.delete(DiscordAccessController.disconnect(map.slug))"
+                    >
+                        Disconnect
+                    </button>
+                </div>
+            </div>
             <!-- Section 1: Entities with Access -->
             <div>
                 <h3 class="text-lg font-semibold">Entities with Access</h3>

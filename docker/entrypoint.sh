@@ -32,13 +32,14 @@ if [ -z "$role" ]; then
                 queue:work) role=queue ;;
                 schedule:work|schedule:run) role=scheduler ;;
                 app:listen-for-killmails) role=killmails ;;
+                discord:access-listen) role=discord-access ;;
             esac
             ;;
     esac
 fi
 
 case "$role" in
-    reverb|killmails) memory_limit=256M ;;
+    reverb|killmails|discord-access) memory_limit=256M ;;
     *) memory_limit=512M ;;
 esac
 
