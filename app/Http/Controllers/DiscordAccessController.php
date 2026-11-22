@@ -11,6 +11,7 @@ use App\DiscordAccess\DiscordAccessState;
 use App\DiscordAccess\DiscordAccessSync;
 use App\Enums\Permission;
 use App\Http\Requests\UpdateDiscordAccessPermissionRequest;
+use App\Models\Character;
 use App\Models\DiscordAccount;
 use App\Models\Map;
 use App\Models\MapDiscordServer;
@@ -20,7 +21,9 @@ use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\URL;
+use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\Response;
 
 final class DiscordAccessController extends Controller
 {
@@ -129,28 +132,37 @@ final class DiscordAccessController extends Controller
         return back()->notify('Discord server disconnected', 'Derived access was removed. Kick the bot in Discord before connecting that server to another map.');
     }
 
-    public function link(Request $request): View
+    public function link(Request $request): Response
     {
-        abort_unless($request->hasValidSignature(), 403);
+        $problem = $this->signatureProblem($request);
+        if ($problem !== null) {
+            return $this->linkScreen($problem, Response::HTTP_FORBIDDEN);
+        }
 
-        return view('discord-access.link', [
-            'action' => $request->fullUrl(),
-        ]);
+        return $this->linkScreen('confirm', Response::HTTP_OK, $request->fullUrl());
     }
 
-    public function confirmLink(Request $request, CreateDiscordAccessLink $links, DiscordAccessSync $sync): RedirectResponse
+    public function linked(): Response
     {
-        abort_unless($request->hasValidSignature(), 403);
+        return $this->linkScreen('success', Response::HTTP_OK);
+    }
+
+    public function confirmLink(Request $request, CreateDiscordAccessLink $links, DiscordAccessSync $sync): Response|RedirectResponse
+    {
+        $problem = $this->signatureProblem($request);
+        if ($problem !== null) {
+            return $this->linkScreen($problem, Response::HTTP_FORBIDDEN);
+        }
 
         $pulled = $links->pull($request->string('nonce')->toString());
-        abort_unless(is_array($pulled), 403);
+        if (! is_array($pulled)) {
+            return $this->linkScreen('invalid', Response::HTTP_FORBIDDEN);
+        }
 
         $discordUserId = $pulled['id'];
-        abort_if(
-            DiscordAccount::query()->where('discord_user_id', $discordUserId)->where('user_id', '!=', $this->user->id)->exists(),
-            409,
-            'This Discord account is already linked to someone else.',
-        );
+        if (DiscordAccount::query()->where('discord_user_id', $discordUserId)->where('user_id', '!=', $this->user->id)->exists()) {
+            return $this->linkScreen('taken', Response::HTTP_CONFLICT);
+        }
 
         $this->user->discordAccount()->updateOrCreate([], [
             'discord_user_id' => $discordUserId,
@@ -160,7 +172,39 @@ final class DiscordAccessController extends Controller
         ]);
         $sync->confirmMembership($discordUserId);
 
-        return to_route('settings.show')->notify('Discord linked', 'Map access from configured Discord servers now applies to your characters.');
+        return to_route('discord-access.linked');
+    }
+
+    private function signatureProblem(Request $request): ?string
+    {
+        if ($request->hasValidSignature()) {
+            return null;
+        }
+
+        return URL::hasCorrectSignature($request) ? 'expired' : 'invalid';
+    }
+
+    private function linkScreen(string $state, int $status, ?string $action = null): Response
+    {
+        $this->user->load('characters');
+        $sessionId = session('active_character_id');
+        $character = is_numeric($sessionId)
+            ? $this->user->characters->firstWhere('id', (int) $sessionId)
+            : null;
+        $character ??= $this->user->characters->first();
+
+        return Inertia::render('discord/LinkAccount', [
+            'state' => $state,
+            'action' => $action,
+            'account' => [
+                'name' => $this->user->name,
+                'character' => $character instanceof Character ? [
+                    'id' => $character->id,
+                    'name' => $character->name,
+                ] : null,
+            ],
+            'cancelUrl' => route('home'),
+        ])->toResponse(request())->setStatusCode($status);
     }
 
     private function accessError(Map $map, string $message): RedirectResponse
