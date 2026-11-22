@@ -1,4 +1,26 @@
+import re
+from pathlib import Path
+
 from setuptools import find_packages, setup
+
+
+def read_version() -> str:
+    """Package metadata version. Alliance Auth displays this, not a second copy."""
+    init = (
+        Path(__file__).resolve().parent
+        / "allianceauth-wormholesystems"
+        / "allianceauth_wormholesystems"
+        / "__init__.py"
+    )
+    match = re.search(
+        r'^__version__\s*=\s*[\'"]([^\'"]+)[\'"]',
+        init.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+    if match is None:
+        raise RuntimeError(f"__version__ missing from {init}")
+    return match.group(1)
+
 
 try:
     with open("allianceauth-wormholesystems/README.md", "r", encoding="utf-8") as fh:
@@ -8,7 +30,7 @@ except Exception:
 
 setup(
     name="allianceauth-wormholesystems",
-    version="0.0.8",
+    version=read_version(),
     author="Wormhole Systems",
     description="Wormhole Systems single sign-on & sidebar app for Alliance Auth",
     long_description=long_description,
