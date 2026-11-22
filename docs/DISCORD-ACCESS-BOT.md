@@ -55,4 +55,4 @@ The OAuth user token from the code exchange is discarded. Membership uses the bo
 
 ## Release
 
-Package version `0.0.19` is the Alliance Auth plugin version for this change. Tag `v0.0.19` only after this is merged, as described in `docs/RELEASING.md`.
+Package version `0.0.20` is the Alliance Auth plugin version for this change. Tag `v0.0.20` only after this is merged, as described in `docs/RELEASING.md`.
