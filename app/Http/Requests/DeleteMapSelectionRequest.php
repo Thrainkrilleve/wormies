@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Builders\MapAccessBuilder;
 use App\Enums\Permission;
 use App\Models\Map;
 use App\Models\User;
@@ -12,7 +11,6 @@ use App\Rules\NotHomeSystem;
 use App\Rules\NotPinned;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 
 final class DeleteMapSelectionRequest extends FormRequest
@@ -22,13 +20,15 @@ final class DeleteMapSelectionRequest extends FormRequest
      */
     public function authorize(#[CurrentUser] User $user): bool
     {
-        return Map::query()
-            ->whereHas('mapSolarsystems', fn (Builder $query) => $query->whereIn('id', $this->array('map_solarsystem_ids')))
-            ->whereDoesntHave('mapAccessors', function (Builder $query) use ($user): void {
-                assert($query instanceof MapAccessBuilder);
-                $query->notExpired()->grantedTo($user)->whereIn('permission', [Permission::Member, Permission::Manager]);
-            })
-            ->doesntExist();
+        $maps = Map::query()
+            ->whereHas('mapSolarsystems', fn ($query) => $query->whereIn('id', $this->array('map_solarsystem_ids')))
+            ->get();
+
+        if ($maps->isEmpty()) {
+            return true;
+        }
+
+        return $maps->every(fn (Map $map): bool => $map->grantsAtLeast($user, Permission::Member));
     }
 
     /**

@@ -9,6 +9,8 @@ use App\DiscordAccess\DiscordAccessAuthorizationException;
 use App\DiscordAccess\DiscordAccessBot;
 use App\DiscordAccess\DiscordAccessState;
 use App\DiscordAccess\DiscordAccessSync;
+use App\Enums\Permission;
+use App\Http\Requests\UpdateDiscordAccessPermissionRequest;
 use App\Models\DiscordAccount;
 use App\Models\Map;
 use App\Models\MapDiscordServer;
@@ -95,6 +97,24 @@ final class DiscordAccessController extends Controller
 
         return to_route('maps.settings.access.show', $server->map)
             ->notify('Discord server connected', is_string($name) && $name !== '' ? 'Connected to '.$name.'.' : 'Linked members can now view this map.');
+    }
+
+    public function updatePermission(UpdateDiscordAccessPermissionRequest $request, Map $map, DiscordAccessSync $sync): RedirectResponse
+    {
+        $server = MapDiscordServer::query()->where('map_id', $map->id)->first();
+        if (! $server instanceof MapDiscordServer || $server->status !== MapDiscordServer::Active || $server->guild_id === null) {
+            return back()->notify('Discord server is not connected', 'Connect a server before choosing an access level.', 'error');
+        }
+
+        $actor = $request->user();
+        if (! $actor instanceof User) {
+            abort(403);
+        }
+
+        $permission = Permission::from($request->string('permission')->toString());
+        $sync->changeDerivedPermission($server, $actor, $permission);
+
+        return back()->notify('Discord access updated', 'Linked members now have '.$permission->value.' access.');
     }
 
     public function disconnect(Map $map, DiscordAccessSync $sync): RedirectResponse

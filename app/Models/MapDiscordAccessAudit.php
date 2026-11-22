@@ -23,6 +23,8 @@ final class MapDiscordAccessAudit extends Model
 
     public const string Revoke = 'revoke';
 
+    public const string Permission = 'permission';
+
     public $timestamps = false;
 
     protected $table = 'map_discord_access_audits';

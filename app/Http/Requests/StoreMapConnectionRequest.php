@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Builders\MapAccessBuilder;
 use App\Enums\LifetimeStatus;
 use App\Enums\MassStatus;
 use App\Enums\Permission;
@@ -13,7 +12,6 @@ use App\Models\Map;
 use App\Models\User;
 use Illuminate\Container\Attributes\CurrentUser;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,13 +22,15 @@ final class StoreMapConnectionRequest extends FormRequest
      */
     public function authorize(#[CurrentUser] User $user): bool
     {
-        return Map::query()
+        $maps = Map::query()
             ->whereHas('mapSolarsystems', fn ($query) => $query->whereIn('id', [$this->integer('from_map_solarsystem_id'), $this->integer('to_map_solarsystem_id')]))
-            ->whereDoesntHave('mapAccessors', function (Builder $query) use ($user): void {
-                assert($query instanceof MapAccessBuilder);
-                $query->notExpired()->grantedTo($user)->whereIn('permission', [Permission::Member, Permission::Manager]);
-            })
-            ->doesntExist();
+            ->get();
+
+        if ($maps->isEmpty()) {
+            return true;
+        }
+
+        return $maps->every(fn (Map $map): bool => $map->grantsAtLeast($user, Permission::Member));
     }
 
     /**

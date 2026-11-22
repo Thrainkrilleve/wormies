@@ -7,6 +7,7 @@ namespace App\Console\Commands\Discord;
 use App\DiscordAccess\CreateDiscordAccessLink;
 use App\DiscordAccess\DiscordAccessBot;
 use App\DiscordAccess\DiscordAccessGateway;
+use App\DiscordAccess\DiscordAccessSync;
 use Discord\Discord;
 use Discord\Parts\Guild\Guild;
 use Discord\Parts\Interactions\ApplicationCommand;
@@ -23,7 +24,7 @@ use Throwable;
 #[Description('Run the Discord access bot. It grants map access to linked members of a configured server.')]
 final class ListenForDiscordAccess extends Command
 {
-    public function handle(DiscordAccessGateway $gateway, DiscordAccessBot $bot, CreateDiscordAccessLink $links): int
+    public function handle(DiscordAccessGateway $gateway, DiscordAccessBot $bot, DiscordAccessSync $sync): int
     {
         if (! $bot->configured()) {
             $this->components->error('DISCORD_ACCESS_BOT_TOKEN and DISCORD_ACCESS_APPLICATION_ID are required.');
@@ -48,15 +49,15 @@ final class ListenForDiscordAccess extends Command
             }
         });
 
-        $discord->on('init', function (Discord $discord) use ($gateway, $bot, $links): void {
+        $discord->on('init', function (Discord $discord) use ($gateway, $bot, $sync): void {
             $guildIds = [];
             foreach ($discord->guilds as $guild) {
                 $guildIds[] = (string) $guild->id;
             }
             $gateway->markReady($guildIds);
-            $this->listenForLink($discord, $links);
+            $this->listenForLink($discord, $sync);
             try {
-                $bot->registerLinkCommand();
+                $bot->registerCommands();
             } catch (Throwable $exception) {
                 report($exception);
             }
@@ -81,8 +82,9 @@ final class ListenForDiscordAccess extends Command
         return self::SUCCESS;
     }
 
-    private function listenForLink(Discord $discord, CreateDiscordAccessLink $links): void
+    private function listenForLink(Discord $discord, DiscordAccessSync $sync): void
     {
+        $links = app(CreateDiscordAccessLink::class);
         $discord->listenCommand('link', function (ApplicationCommand $interaction) use ($links): void {
             $user = $interaction->user;
             if ($user === null) {
@@ -92,6 +94,17 @@ final class ListenForDiscordAccess extends Command
             $url = $links->url((string) $user->id, (string) $user->username);
             $interaction->respondWithMessage(
                 \Discord\Builders\MessageBuilder::new()->setContent('Open this link while you are signed in. It expires in 10 minutes and works once: '.$url),
+                true,
+            )->then(null, fn (Throwable $exception) => report($exception));
+        });
+        $discord->listenCommand('unlink', function (ApplicationCommand $interaction) use ($sync): void {
+            $user = $interaction->user;
+            if ($user === null) {
+                return;
+            }
+
+            $interaction->respondWithMessage(
+                \Discord\Builders\MessageBuilder::new()->setContent($sync->unlinkInvokedUser((string) $user->id)),
                 true,
             )->then(null, fn (Throwable $exception) => report($exception));
         });

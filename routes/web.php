@@ -124,6 +124,7 @@ Route::middleware('auth')->group(function () {
         Route::get('access', [MapAccessController::class, 'show'])->name('access.show');
         Route::post('access', [MapAccessController::class, 'store'])->name('access.store');
         Route::post('access/discord-server', [DiscordAccessController::class, 'store'])->name('access.discord.store');
+        Route::post('access/discord-server/permission', [DiscordAccessController::class, 'updatePermission'])->name('access.discord.permission');
         Route::delete('access/discord-server', [DiscordAccessController::class, 'disconnect'])->name('access.discord.destroy');
 
         Route::get('routing', [MapRoutingSettingsController::class, 'show'])->name('routing.show');

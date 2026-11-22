@@ -17,6 +17,10 @@ final class CreateDiscordAccessLink
             'id' => $discordUserId,
             'username' => $username,
         ], now()->addMinutes(10));
+        $nonces = Cache::get($this->indexKey($discordUserId), []);
+        $nonces = is_array($nonces) ? $nonces : [];
+        $nonces[] = $nonce;
+        Cache::put($this->indexKey($discordUserId), $nonces, now()->addMinutes(10));
 
         return URL::temporarySignedRoute('discord-access.link', now()->addMinutes(10), [
             'nonce' => $nonce,
@@ -35,6 +39,25 @@ final class CreateDiscordAccessLink
             'id' => $payload['id'],
             'username' => is_string($payload['username'] ?? null) && $payload['username'] !== '' ? $payload['username'] : 'member',
         ];
+    }
+
+    public function forgetFor(string $discordUserId): void
+    {
+        $nonces = Cache::pull($this->indexKey($discordUserId), []);
+        if (! is_array($nonces)) {
+            return;
+        }
+
+        foreach ($nonces as $nonce) {
+            if (is_string($nonce) && $nonce !== '') {
+                Cache::forget($this->key($nonce));
+            }
+        }
+    }
+
+    private function indexKey(string $discordUserId): string
+    {
+        return 'discord-access.link.user.'.$discordUserId;
     }
 
     private function key(string $nonce): string
