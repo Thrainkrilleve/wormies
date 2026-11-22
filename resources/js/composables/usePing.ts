@@ -15,10 +15,14 @@ export function usePing(map: MaybeRefOrGetter<TMap>) {
     // to login *and* remembers this ping URL as the post-login destination -
     // landing the next real login on this endpoint's raw JSON instead of the
     // app.
-    const { execute } = useFetch(() => PingController.show(toValue(map).slug).url, {
-        immediate: false,
-        headers: { Accept: 'application/json' },
-    });
+    // VueUse 14 takes RequestInit and UseFetchOptions as separate arguments.
+    // A single object that includes `immediate` is treated only as UseFetchOptions,
+    // which drops `headers`.
+    const { execute } = useFetch(
+        () => PingController.show(toValue(map).slug).url,
+        { headers: { Accept: 'application/json' } },
+        { immediate: false },
+    );
     useIntervalFn(execute, PING_INTERVAL_SECONDS, {
         immediateCallback: true,
     });
