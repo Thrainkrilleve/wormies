@@ -1,8 +1,8 @@
+import { createReconnectListener, type ConnectionStateChange } from '@/composables/echoReconnect';
 import { useOnClient } from '@/composables/useOnClient';
 import useUser from '@/composables/useUser';
 import { getUserChannelName } from '@/const/channels';
 import { UserCharacterStatusUpdatedEvent } from '@/const/events';
-import { createReconnectListener, type ConnectionStateChange } from '@/map/sync/reconnect';
 import { router } from '@inertiajs/vue3';
 import { echo, useEcho } from '@laravel/echo-vue';
 import { onMounted, onUnmounted } from 'vue';
