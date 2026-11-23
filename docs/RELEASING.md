@@ -1,11 +1,14 @@
-# Releasing the Alliance Auth package
+# Releasing
 
-Alliance Auth shows the installed distribution version. That value is `__version__` in `allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py`. Both `setup.py` files read it. Do not write a second version string.
+Pushing a `v*` tag is the release. The tag is the version. Austin pushes tags. An agent does not create or move them.
 
-1. Set `__version__` to the release, for example `0.0.15`. Update the expected version in `tests/Unit/PackageVersionTest.php` to the same string.
-2. Merge that commit to `main`.
-3. Tag that merge commit `v` plus the same version (`v0.0.15`) and push the tag. Do not push the tag before the version bump is on the commit you tag.
+The publish workflow accepts the tag only when it is semver (`vX.Y.Z`) and the tagged commit is on `main`. It then writes that version, without the leading `v`, into `__version__` in `allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py` before the image is built. Both `setup.py` files read that line. A push to `main` that is not a tag, and a manual run, leave the committed version as it is.
 
-A pushed `v*` tag runs the image publish workflow. The workflow fails when the tag, without the leading `v`, is not exactly `__version__` on that commit.
+1. Merge the changes to `main`. The committed `__version__` for this release is `0.0.21`.
+2. Tag that commit `v0.0.21` and push the tag. Do not tag a commit that is not on `main`.
+3. Pin Alliance Auth to the tag in `conf/requirements.txt` (`git+https://github.com/Thrainkrilleve/wormies.git@v0.0.21`).
+4. Rebuild the Alliance Auth image (`docker compose build` for that service) so the pin is installed.
+5. Set the Wormhole Systems compose image tag to `v0.0.21`.
+6. `docker compose pull` and `docker compose up -d`.
 
-After the tag exists, pin the Alliance Auth install to it (`@v0.0.15` on the existing git URL). An unpinned git install follows the default branch and can move without a version change in the environment.
+An unpinned git install follows the default branch and can move without a published tag.
