@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\EsiTokenSource;
 use App\Exception\CharacterNotAuthorizedException;
 use App\Jobs\UpdateAffiliations;
 use App\Models\Alliance;
@@ -13,12 +14,16 @@ use App\Models\EsiScope;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use NicolasKion\Esi\DTO\CharacterAffiliation;
 use NicolasKion\Esi\Esi;
 
 final readonly class AllianceAuthService
 {
+    public const TOKEN_ENDPOINT_BACKOFF = 'alliance-auth:character-token-unavailable';
+
     public function __construct(
         private Esi $esi,
         private AffiliationWhitelist $whitelist,
@@ -44,6 +49,72 @@ final readonly class AllianceAuthService
     public function getClientSecret(): string
     {
         return (string) config('services.allianceauth.client_secret');
+    }
+
+    /**
+     * A current EVE access token for a character, refreshed by Alliance Auth
+     * with Alliance Auth's own ESI application. Null when that route is missing
+     * or the refresh did not return a token. The refresh token is not returned.
+     *
+     * @return array{access_token: string, expires_in: int, scopes: list<string>}|null
+     */
+    public function freshCharacterAccessToken(int $characterId): ?array
+    {
+        if (Cache::has(self::TOKEN_ENDPOINT_BACKOFF)) {
+            return null;
+        }
+
+        $headers = ['Accept' => 'application/json'];
+        $host = parse_url($this->getBaseUrl(), PHP_URL_HOST);
+        if (is_string($host) && $host !== '') {
+            $headers['Host'] = $host;
+        }
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->withBasicAuth($this->getClientId(), $this->getClientSecret())
+                ->acceptJson()
+                ->post($this->getInternalUrl().'/wormholesystems/api/character-token/', [
+                    'character_id' => $characterId,
+                ]);
+        } catch (ConnectionException) {
+            Cache::put(self::TOKEN_ENDPOINT_BACKOFF, true, now()->addMinutes(10));
+            Log::warning('Alliance Auth character token endpoint could not be reached', [
+                'character_id' => $characterId,
+            ]);
+
+            return null;
+        }
+
+        if ($response->status() === 404) {
+            Cache::put(self::TOKEN_ENDPOINT_BACKOFF, true, now()->addMinutes(10));
+            Log::warning('Alliance Auth character token endpoint is not available', [
+                'character_id' => $characterId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        }
+
+        $accessToken = $response->json('access_token');
+
+        if (! $response->successful() || ! is_string($accessToken) || $accessToken === '') {
+            Log::warning('Alliance Auth did not return an ESI access token', [
+                'character_id' => $characterId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        }
+
+        $expiresIn = $response->json('expires_in');
+        $scopes = $response->json('scopes');
+
+        return [
+            'access_token' => $accessToken,
+            'expires_in' => is_numeric($expiresIn) ? (int) $expiresIn : 1200,
+            'scopes' => is_array($scopes) ? array_values(array_filter($scopes, is_string(...))) : [],
+        ];
     }
 
     public function getRedirectUri(): string
@@ -309,6 +380,8 @@ final readonly class AllianceAuthService
                         'access_token' => $charData['access_token'],
                         'refresh_token' => $charData['refresh_token'],
                         'token_type' => 'character',
+                        'source' => EsiTokenSource::AllianceAuth,
+                        'reauth_required' => false,
                         'character_owner_hash' => $char->character_owner_hash ?? '',
                         'expires_at' => now()->addSeconds($expiresIn),
                     ]);
@@ -317,6 +390,8 @@ final readonly class AllianceAuthService
                         'access_token' => $charData['access_token'],
                         'refresh_token' => $charData['refresh_token'],
                         'token_type' => 'character',
+                        'source' => EsiTokenSource::AllianceAuth,
+                        'reauth_required' => false,
                         'character_owner_hash' => $char->character_owner_hash ?? $token->character_owner_hash,
                         'expires_at' => now()->addSeconds($expiresIn),
                     ]);

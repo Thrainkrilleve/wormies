@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Exception\CharacterNotAuthorizedException;
+use App\Enums\EsiTokenSource;
 use App\Models\Character;
+use App\Models\EsiToken;
 use App\Models\User;
-use App\Services\AllianceAuthService;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use NicolasKion\Esi\DTO\CharacterAffiliation;
@@ -88,6 +88,47 @@ it('logs in user via Alliance Auth callback when authorized', function () {
     expect($user)->toBeInstanceOf(User::class)
         ->and($user->name)->toBe('Alliance Pilot')
         ->and(Character::query()->find(8888))->not()->toBeNull();
+});
+
+it('stores copied alliance auth esi tokens with the alliance auth source', function () {
+    session(['allianceauth_state' => 'test-state']);
+
+    Http::fake([
+        'https://auth.example.com/o/token/' => Http::response([
+            'access_token' => 'mocked-aa-access-token',
+            'token_type' => 'Bearer',
+        ]),
+        'https://auth.example.com/o/userinfo/' => Http::response([
+            'sub' => '1001',
+            'character_id' => 8888,
+            'name' => 'Alliance Pilot',
+            'characters' => [[
+                'character_id' => 8888,
+                'character_name' => 'Alliance Pilot',
+                'character_owner_hash' => 'owner-hash',
+                'access_token' => 'copied-access',
+                'refresh_token' => 'copied-refresh',
+                'expires_in' => 1200,
+                'scopes' => ['esi-location.read_online.v1'],
+            ]],
+        ]),
+    ]);
+
+    fakeAllianceAuthEsi(characterId: 8888);
+
+    $this->get(route('allianceauth.callback', [
+        'code' => 'test-code',
+        'state' => 'test-state',
+    ]))->assertRedirect(route('home'));
+
+    $token = EsiToken::query()->where('character_id', 8888)->first();
+
+    expect($token)->not->toBeNull()
+        ->and($token->source)->toBe(EsiTokenSource::AllianceAuth)
+        ->and($token->token_type)->toBe('character')
+        ->and($token->reauth_required)->toBeFalse()
+        ->and($token->getAccessToken())->toBe('copied-access')
+        ->and($token->getRefreshToken())->toBe('copied-refresh');
 });
 
 it('blocks login if user lacks the required Alliance Auth group', function () {

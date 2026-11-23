@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Esi;
 
+use App\Enums\EsiTokenSource;
 use App\Models\Character;
+use App\Models\EsiScope;
 use App\Models\EsiToken;
+use App\Services\AllianceAuthService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -32,7 +35,10 @@ final class CharacterEsiClient
 
     public const BROADCAST_INTERVAL_SECONDS = 60;
 
-    public function __construct(private readonly Esi $esi) {}
+    public function __construct(
+        private readonly Esi $esi,
+        private readonly AllianceAuthService $allianceAuth,
+    ) {}
 
     /**
      * Broadcast a location heartbeat at most once a minute when nothing else changed,
@@ -123,7 +129,7 @@ final class CharacterEsiClient
     private function refreshExpiredTokens(Character $character): void
     {
         foreach ($character->esiTokens()->get() as $token) {
-            if (! $token->isExpired()) {
+            if (! $token->needsRefresh()) {
                 continue;
             }
 
@@ -132,6 +138,39 @@ final class CharacterEsiClient
     }
 
     private function refreshToken(EsiToken $token): void
+    {
+        if ($token->source === EsiTokenSource::AllianceAuth) {
+            $this->refreshFromAllianceAuth($token);
+
+            return;
+        }
+
+        $this->refreshFromEveSso($token);
+    }
+
+    private function refreshFromAllianceAuth(EsiToken $token): void
+    {
+        $fresh = $this->allianceAuth->freshCharacterAccessToken((int) $token->character_id);
+
+        if ($fresh === null) {
+            $this->markReauthRequired($token);
+
+            return;
+        }
+
+        $token->update([
+            'access_token' => $fresh['access_token'],
+            'expires_at' => now()->addSeconds($fresh['expires_in']),
+            'reauth_required' => false,
+        ]);
+
+        if ($fresh['scopes'] !== []) {
+            $scopeIds = EsiScope::query()->whereIn('name', $fresh['scopes'])->pluck('id');
+            $token->esiScopes()->sync($scopeIds);
+        }
+    }
+
+    private function refreshFromEveSso(EsiToken $token): void
     {
         if ($token->refresh_token === null || $token->refresh_token === '') {
             Log::warning('ESI token has no refresh token', [
@@ -142,12 +181,14 @@ final class CharacterEsiClient
             return;
         }
 
+        $clientId = (string) config('esi.client_id');
+
         try {
             $response = Http::withHeaders([
                 'User-Agent' => (string) config('esi.user_agent'),
             ])
                 ->asForm()
-                ->withBasicAuth((string) config('esi.client_id'), (string) config('esi.client_secret'))
+                ->withBasicAuth($clientId, (string) config('esi.client_secret'))
                 ->retry(
                     3,
                     500,
@@ -175,7 +216,7 @@ final class CharacterEsiClient
                 'status' => $response->status(),
             ]);
 
-            if ($response->status() === 400 && str_contains($response->body(), 'invalid_grant')) {
+            if ($response->status() === 400 && str_contains($response->body(), 'invalid_grant') && $this->refreshedWithMatchingClient($token, $clientId)) {
                 $token->deleteBecauseRevoked();
             }
 
@@ -189,6 +230,34 @@ final class CharacterEsiClient
             'access_token' => $response->json('access_token'),
             'expires_at' => now()->addSeconds(is_numeric($expiresIn) ? (int) $expiresIn : 1200),
             'refresh_token' => is_string($refreshToken) && $refreshToken !== '' ? $refreshToken : $token->refresh_token,
+        ]);
+    }
+
+    private function refreshedWithMatchingClient(EsiToken $token, string $clientId): bool
+    {
+        if ($clientId === '') {
+            return false;
+        }
+
+        $issuedTo = $token->oauth_client_id;
+
+        if ($issuedTo === null || $issuedTo === '') {
+            return true;
+        }
+
+        return hash_equals($issuedTo, $clientId);
+    }
+
+    private function markReauthRequired(EsiToken $token): void
+    {
+        if ($token->reauth_required) {
+            return;
+        }
+
+        $token->update(['reauth_required' => true]);
+        Log::warning('Alliance Auth ESI token needs a direct EVE login', [
+            'character_id' => $token->character_id,
+            'esi_token_id' => $token->id,
         ]);
     }
 
