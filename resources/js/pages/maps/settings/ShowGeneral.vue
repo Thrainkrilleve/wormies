@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import useIsMapOwner from '@/composables/useIsMapOwner';
 import SettingsLayout from '@/layouts/SettingsLayout.vue';
@@ -12,12 +13,14 @@ import { TMapSummary } from '@/pages/maps';
 import { destroy, update } from '@/routes/maps';
 import { router, useForm } from '@inertiajs/vue3';
 import { Check, Copy, Globe, Link2, Link2Off, Waypoints, Workflow, type LucideIcon } from 'lucide-vue-next';
+import { AcceptableValue } from 'reka-ui';
 import { computed, ref } from 'vue';
 
-const { map, is_public, share_token } = defineProps<{
+const { map, is_public, share_token, regions } = defineProps<{
     map: TMapSummary;
     is_public: boolean;
     share_token: string | null;
+    regions: { id: number; name: string }[];
 }>();
 
 const user_is_owner = useIsMapOwner();
@@ -69,6 +72,61 @@ function setAllowOverride(allow_layout_override: boolean) {
             only: ['map'],
         },
     );
+}
+
+function saveEveScout(patch: {
+    eve_scout_sync_enabled?: boolean;
+    eve_scout_hubs?: 'thera' | 'turnur' | 'both';
+    eve_scout_filter?: 'jumps' | 'region';
+    eve_scout_max_jumps?: number;
+    eve_scout_region_ids?: number[];
+}) {
+    router.put(
+        `/maps/${map.slug}/settings/eve-scout`,
+        {
+            eve_scout_sync_enabled: map.eve_scout_sync_enabled ?? false,
+            eve_scout_hubs: map.eve_scout_hubs ?? 'both',
+            eve_scout_filter: map.eve_scout_filter ?? 'jumps',
+            eve_scout_max_jumps: map.eve_scout_max_jumps ?? 5,
+            eve_scout_region_ids: map.eve_scout_region_ids ?? [],
+            ...patch,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['map'],
+        },
+    );
+}
+
+function setHubs(value: AcceptableValue) {
+    if (value === 'thera' || value === 'turnur' || value === 'both') {
+        saveEveScout({ eve_scout_hubs: value });
+    }
+}
+
+function setFilter(value: AcceptableValue) {
+    if (value === 'jumps' || value === 'region') {
+        saveEveScout({ eve_scout_filter: value });
+    }
+}
+
+function setMaxJumps(event: Event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+        return;
+    }
+    saveEveScout({ eve_scout_max_jumps: Number(target.value) });
+}
+
+function toggleRegion(regionId: number, event: Event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+        return;
+    }
+    const current = map.eve_scout_region_ids ?? [];
+    const eve_scout_region_ids = target.checked ? [...current, regionId] : current.filter((id) => id !== regionId);
+    saveEveScout({ eve_scout_region_ids });
 }
 
 function setConstantWidth(constant_width_enabled: boolean) {
@@ -196,6 +254,90 @@ function copyShareLink() {
                             </p>
                         </div>
                         <Switch :model-value="map.constant_width_enabled" @update:modelValue="setConstantWidth" />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle class="text-xl font-semibold">EVE-Scout import</CardTitle>
+                    <CardDescription>
+                        Off by default. Every 30 minutes, maps that enable this receive Thera and Turnur holes from EVE-Scout. The default filter
+                        keeps a hole only when its other side is within 5 stargate jumps of the home system or a pinned system. A map with neither
+                        gets nothing, so the full public list is not dropped onto the map. Holes this import created are updated when their mass or
+                        lifetime changes and removed when EVE-Scout drops them or they expire. Holes added by hand are left alone.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-sm font-medium">Import Thera and Turnur</h4>
+                            <p class="text-xs text-muted-foreground">
+                                Managers and the owner can change this. It stays off until someone turns it on.
+                            </p>
+                        </div>
+                        <Switch
+                            :model-value="map.eve_scout_sync_enabled ?? false"
+                            @update:model-value="(value) => saveEveScout({ eve_scout_sync_enabled: value === true })"
+                        />
+                    </div>
+
+                    <div class="grid gap-4 border-t border-border/50 pt-4 sm:grid-cols-2">
+                        <div class="space-y-2">
+                            <Label>Hubs</Label>
+                            <Select :model-value="map.eve_scout_hubs ?? 'both'" @update:model-value="setHubs">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Both hubs" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="both">Thera and Turnur</SelectItem>
+                                    <SelectItem value="thera">Thera only</SelectItem>
+                                    <SelectItem value="turnur">Turnur only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div class="space-y-2">
+                            <Label>Limit</Label>
+                            <Select :model-value="map.eve_scout_filter ?? 'jumps'" @update:model-value="setFilter">
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Jumps from home" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="jumps">Jumps from home or pins</SelectItem>
+                                    <SelectItem value="region">Selected regions</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div v-if="(map.eve_scout_filter ?? 'jumps') === 'jumps'" class="space-y-2">
+                        <Label for="eve-scout-jumps">Maximum jumps</Label>
+                        <Input
+                            id="eve-scout-jumps"
+                            type="number"
+                            min="0"
+                            max="50"
+                            :model-value="String(map.eve_scout_max_jumps ?? 5)"
+                            @change="setMaxJumps"
+                        />
+                        <p class="text-xs text-muted-foreground">0 keeps only holes that land on the home system or a pinned system.</p>
+                    </div>
+
+                    <div v-else class="space-y-2">
+                        <Label>Regions</Label>
+                        <div class="max-h-48 space-y-2 overflow-auto rounded-md border p-3">
+                            <label v-for="region in regions" :key="region.id" class="flex items-center gap-2 text-sm">
+                                <input
+                                    type="checkbox"
+                                    class="size-4"
+                                    :checked="(map.eve_scout_region_ids ?? []).includes(region.id)"
+                                    @change="(event: Event) => toggleRegion(region.id, event)"
+                                />
+                                {{ region.name }}
+                            </label>
+                            <p v-if="regions.length === 0" class="text-xs text-muted-foreground">No regions are loaded yet.</p>
+                        </div>
+                        <p class="text-xs text-muted-foreground">With no region selected, the import adds nothing.</p>
                     </div>
                 </CardContent>
             </Card>

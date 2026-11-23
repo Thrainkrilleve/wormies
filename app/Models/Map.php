@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Builders\MapAccessBuilder;
 use App\Enums\AliasScheme;
+use App\Enums\EveScoutFilter;
+use App\Enums\EveScoutHub;
 use App\Enums\MapLayout;
 use App\Enums\Permission;
 use App\Traits\HasSlug;
@@ -35,6 +37,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $bookmark_format_return
  * @property AliasScheme $bookmark_alias_scheme
  * @property string $bookmark_ignored_alias
+ * @property bool $eve_scout_sync_enabled
+ * @property EveScoutHub $eve_scout_hubs
+ * @property EveScoutFilter $eve_scout_filter
+ * @property int $eve_scout_max_jumps
+ * @property array<int, int>|null $eve_scout_region_ids
  * @property-read string|CarbonImmutable $created_at
  * @property-read string|CarbonImmutable $updated_at
  * @property-read Collection<int,MapSolarsystem> $mapSolarsystems
@@ -238,6 +245,11 @@ final class Map extends Model
             'allow_layout_override' => 'boolean',
             'constant_width_enabled' => 'boolean',
             'bookmark_alias_scheme' => AliasScheme::class,
+            'eve_scout_sync_enabled' => 'boolean',
+            'eve_scout_hubs' => EveScoutHub::class,
+            'eve_scout_filter' => EveScoutFilter::class,
+            'eve_scout_max_jumps' => 'integer',
+            'eve_scout_region_ids' => 'array',
         ];
     }
 

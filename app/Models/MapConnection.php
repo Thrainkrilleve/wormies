@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property LifetimeStatus $lifetime
  * @property DateTimeImmutable|string|null $lifetime_updated_at
  * @property CarbonImmutable|null $connected_at
+ * @property bool $eve_scout_managed
  * @property-read string|CarbonImmutable $created_at
  * @property-read string|CarbonImmutable $updated_at
  * @property-read MapSolarsystem $fromMapSolarsystem
@@ -62,6 +63,7 @@ final class MapConnection extends Model
         'ship_size' => ShipSize::class,
         'lifetime' => LifetimeStatus::class,
         'lifetime_updated_at' => 'immutable_datetime',
+        'eve_scout_managed' => 'boolean',
     ];
 
     /**

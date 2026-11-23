@@ -20,6 +20,7 @@ use App\Models\SignatureType;
 use App\Models\Solarsystem;
 use App\Models\Wormhole;
 use App\Services\EveScoutService;
+use App\Support\Broadcasting\MapBroadcaster;
 use App\Traits\PositionsMapSolarsystems;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Collection;
@@ -47,6 +48,7 @@ final readonly class AddEveScoutConnectionToMapAction
         #[Config('map.max_size.y')] private int $max_y,
         #[Config('map.max_size.x')] private int $max_x,
         #[Config('map.grid_size')] private int $grid_size,
+        private MapBroadcaster $mapBroadcaster,
     ) {}
 
     /**
@@ -59,14 +61,18 @@ final readonly class AddEveScoutConnectionToMapAction
      * 4. Add each connection to map (if not exists)
      * 5. Add each signature (if not exist) and match them with connections
      *
+     * @param  Collection<int, EveScoutConnectionData>|null  $connections  Preloaded signatures for a sync run. Null fetches them, which is the manual add.
+     * @param  bool  $managed  When true, new connections are marked as created by the sync and later runs may refresh their mass and lifetime.
+     *
      * @throws Throwable
      */
-    public function handle(Map $map, Solarsystem $solarsystem): void
+    public function handle(Map $map, Solarsystem $solarsystem, ?Collection $connections = null, bool $managed = false): void
     {
         $origin_system_id = $solarsystem->id;
-        DB::transaction(function () use ($map, $origin_system_id): void {
-            // Step 1: Fetch fresh connections from EVE Scout
-            $all_connections = $this->eveScoutService->getWormholeConnections();
+        /** @var list<int> $updatedIds */
+        $updatedIds = [];
+        DB::transaction(function () use ($map, $origin_system_id, $connections, $managed, &$updatedIds): void {
+            $all_connections = $connections ?? $this->eveScoutService->getWormholeConnections();
 
             // Filter for connections involving the special system (Thera/Turnur)
             $connections = collect($all_connections)
@@ -135,7 +141,10 @@ final readonly class AddEveScoutConnectionToMapAction
                 $mapConnection = $this->getOrCreateConnection(
                     $specialMapSystem,
                     $destinationMapSystem,
-                    $wormhole?->id
+                    $wormhole?->id,
+                    $connection,
+                    $managed,
+                    $updatedIds,
                 );
 
                 // Step 5: Add each signature (if not exist) and match them with connections
@@ -157,6 +166,14 @@ final readonly class AddEveScoutConnectionToMapAction
             }
 
         }, attempts: 5);
+
+        if ($updatedIds !== []) {
+            $this->mapBroadcaster->connectionsUpserted($map->id, MapConnection::query()
+                ->whereKey($updatedIds)
+                ->with('signatures.signatureType', 'signatures.wormhole')
+                ->withJumpSummary()
+                ->get());
+        }
     }
 
     /**
@@ -337,10 +354,16 @@ final readonly class AddEveScoutConnectionToMapAction
     /**
      * Get or create a connection between two systems using existing action
      */
+    /**
+     * @param  list<int>  $updatedIds
+     */
     private function getOrCreateConnection(
         MapSolarsystem $specialMapSystem,
         MapSolarsystem $destinationMapSystem,
-        ?int $wormholeId
+        ?int $wormholeId,
+        EveScoutConnectionData $scout,
+        bool $managed,
+        array &$updatedIds,
     ): MapConnection {
         // Check if a connection already exists between these systems
         $existingConnection = MapConnection::query()
@@ -357,18 +380,79 @@ final readonly class AddEveScoutConnectionToMapAction
             ->first();
 
         if ($existingConnection) {
+            if ($managed && $existingConnection->eve_scout_managed) {
+                $this->refreshManagedStatus($existingConnection, $scout, $updatedIds);
+            }
+
             return $existingConnection;
         }
 
-        // Create a new connection using existing action
+        $mass = $managed ? $this->massStatus($scout->mass) : MassStatus::Fresh;
+        $lifetime = $managed ? $this->lifetimeStatus($scout->remaining_hours, $scout->life) : LifetimeStatus::Healthy;
+
         return $this->createMapConnectionAction->handle([
             'from_map_solarsystem_id' => $specialMapSystem->id,
             'to_map_solarsystem_id' => $destinationMapSystem->id,
             'wormhole_id' => $wormholeId,
-            'mass_status' => MassStatus::Fresh,
+            'mass_status' => $mass,
             'ship_size' => ShipSize::Large,
-            'lifetime' => LifetimeStatus::Healthy,
+            'lifetime' => $lifetime,
+            'lifetime_updated_at' => $managed ? now() : null,
+            'eve_scout_managed' => $managed,
         ]);
+    }
+
+    /**
+     * @param  list<int>  $updatedIds
+     */
+    private function refreshManagedStatus(MapConnection $connection, EveScoutConnectionData $scout, array &$updatedIds): void
+    {
+        $mass = $this->massStatus($scout->mass);
+        $lifetime = $this->lifetimeStatus($scout->remaining_hours, $scout->life);
+        $changes = [];
+
+        if (! $connection->preserve_mass && $connection->mass_status !== $mass) {
+            $changes['mass_status'] = $mass;
+        }
+
+        if ($connection->lifetime !== $lifetime) {
+            $changes['lifetime'] = $lifetime;
+            $changes['lifetime_updated_at'] = now();
+        }
+
+        if ($changes === []) {
+            return;
+        }
+
+        $connection->update($changes);
+        $updatedIds[] = $connection->id;
+    }
+
+    private function massStatus(string $mass): MassStatus
+    {
+        return match (mb_strtolower($mass)) {
+            'critical', 'crit' => MassStatus::Critical,
+            'destab', 'destabilized', 'reduced', 'half' => MassStatus::Reduced,
+            'stable', 'fresh' => MassStatus::Fresh,
+            default => MassStatus::Unknown,
+        };
+    }
+
+    private function lifetimeStatus(?float $remaining, string $life): LifetimeStatus
+    {
+        if ($remaining !== null && $remaining < 1) {
+            return LifetimeStatus::Critical;
+        }
+
+        if ($remaining !== null && $remaining < 4) {
+            return LifetimeStatus::EndOfLife;
+        }
+
+        return match (mb_strtolower($life)) {
+            'critical' => LifetimeStatus::Critical,
+            'eol', 'decaying', 'end_of_life' => LifetimeStatus::EndOfLife,
+            default => LifetimeStatus::Healthy,
+        };
     }
 
     /**
