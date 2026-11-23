@@ -11,6 +11,9 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   DB_HOST: 127.0.0.1
   DB_USERNAME: root
