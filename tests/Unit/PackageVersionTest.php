@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-it('single-sources the alliance auth package version and matches a v tag', function () {
+it('reads the alliance auth package version from __version__ and stamps a valid tag', function () {
     $root = dirname(__DIR__, 2);
     $init = file_get_contents($root.'/allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py');
     preg_match('/^__version__ = "([^"]+)"/m', $init, $match);
+    $version = $match[1] ?? null;
 
-    expect($match[1] ?? null)->toBe('0.0.20');
+    expect($version)->toMatch('/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/');
 
     foreach (['setup.py', 'allianceauth-wormholesystems/setup.py'] as $setup) {
         $contents = file_get_contents($root.'/'.$setup);
@@ -17,12 +18,73 @@ it('single-sources the alliance auth package version and matches a v tag', funct
 
     $workflow = file_get_contents($root.'/.github/workflows/docker.yml');
     expect($workflow)->toContain('sh docker/require-package-version.sh')
-        ->and($workflow)->toContain("startsWith(github.ref, 'refs/tags/v')");
+        ->and($workflow)->toContain("startsWith(github.ref, 'refs/tags/v')")
+        ->and($workflow)->toContain('group: publish-${{ github.ref }}')
+        ->and($workflow)->toContain("cancel-in-progress: \${{ github.ref_type != 'tag' }}")
+        ->and($workflow)->toContain('git fetch --no-tags origin main:refs/remotes/origin/main');
 
-    $script = escapeshellarg($root.'/docker/require-package-version.sh');
-    exec('sh '.$script.' '.escapeshellarg('v'.$match[1]).' >/dev/null 2>&1', $good, $ok);
-    exec('sh '.$script.' v0.0.0 >/dev/null 2>&1', $bad, $fail);
+    $script = $root.'/docker/require-package-version.sh';
+    $semver = '/^__version__ = "(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"$/m';
 
-    expect($ok)->toBe(0)
-        ->and($fail)->not->toBe(0);
+    $plain = packageVersionFixture();
+    runPackageVersionScript($script, 'v1.2', $plain, 1);
+    expect(file_get_contents(packageVersionInit($plain)))->toBe("__version__ = \"0.0.0\"\n");
+
+    runPackageVersionScript($script, 'v1.2.3', $plain, 0);
+    expect(file_get_contents(packageVersionInit($plain)))->toMatch($semver)
+        ->toContain('__version__ = "1.2.3"');
+
+    $repo = packageVersionFixture(git: true);
+    runPackageVersionScript($script, 'v9.9.9', $repo, 1);
+    expect(file_get_contents(packageVersionInit($repo)))->toContain('__version__ = "0.0.1"');
+
+    gitIn($repo, 'checkout main');
+    runPackageVersionScript($script, 'v9.9.9', $repo, 0);
+    expect(file_get_contents(packageVersionInit($repo)))->toContain('__version__ = "9.9.9"');
 });
+
+function packageVersionInit(string $root): string
+{
+    return $root.'/allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py';
+}
+
+function packageVersionFixture(bool $git = false): string
+{
+    $root = sys_get_temp_dir().'/pkg-version-'.bin2hex(random_bytes(4));
+    $init = packageVersionInit($root);
+    mkdir(dirname($init), 0777, true);
+    file_put_contents($init, "__version__ = \"0.0.0\"\n");
+
+    if (! $git) {
+        return $root;
+    }
+
+    gitIn($root, 'init -b main');
+    gitIn($root, 'config user.email test@example.com');
+    gitIn($root, 'config user.name test');
+    gitIn($root, 'add .');
+    gitIn($root, 'commit -m init');
+    file_put_contents($init, "__version__ = \"0.0.1\"\n");
+    gitIn($root, 'checkout -b side');
+    gitIn($root, 'add .');
+    gitIn($root, 'commit -m side');
+    gitIn($root, 'update-ref refs/remotes/origin/main main');
+
+    return $root;
+}
+
+function gitIn(string $root, string $args): void
+{
+    exec('git -C '.escapeshellarg($root).' '.$args.' 2>&1', $output, $code);
+    expect($code)->toBe(0);
+}
+
+function runPackageVersionScript(string $script, string $tag, string $root, int $expected): void
+{
+    exec(
+        'sh '.escapeshellarg($script).' '.escapeshellarg($tag).' '.escapeshellarg($root).' >/dev/null 2>&1',
+        $output,
+        $code,
+    );
+    expect($code)->toBe($expected);
+}

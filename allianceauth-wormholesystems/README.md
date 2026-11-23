@@ -13,13 +13,15 @@ This app integrates [Wormhole Systems](https://wormhole.systems) into **Alliance
 Add to your `conf/requirements.txt`:
 
 ```text
-git+https://github.com/Thrainkrilleve/wormies.git
+git+https://github.com/Thrainkrilleve/wormies.git@v0.0.21
 ```
+
+Move the `@vX.Y.Z` pin when a new tag is published. The steps are in `docs/RELEASING.md`.
 
 Or install via pip inside your Alliance Auth environment:
 
 ```bash
-pip install git+https://github.com/Thrainkrilleve/wormies.git
+pip install git+https://github.com/Thrainkrilleve/wormies.git@v0.0.21
 ```
 
 ### 2. Configure `local.py`
