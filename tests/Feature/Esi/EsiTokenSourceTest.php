@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AllianceAuthService;
 use App\Services\Esi\CharacterEsiClient;
 use App\Services\Esi\RepairAllianceAuthEsiTokens;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Monolog\Handler\TestHandler;
@@ -248,4 +249,54 @@ it('asks alliance auth for a character token without sending the refresh token',
 
     Http::assertSent(fn ($request): bool => $request['character_id'] === 12345
         && ! array_key_exists('refresh_token', $request->data()));
+});
+
+it('treats an alliance auth redirect as a failed character token response', function () {
+    esiClientConfig();
+    $logs = captureLogs();
+
+    Http::fake([
+        'https://auth.example.com/wormholesystems/api/character-token/' => Http::response(
+            '<html>login-page-secret</html>',
+            302,
+            ['Location' => 'https://auth.example.com/account/login/?next=/wormholesystems/api/character-token/'],
+        ),
+    ]);
+
+    expect(app(AllianceAuthService::class)->freshCharacterAccessToken(12345))->toBeNull()
+        ->and(Cache::has(AllianceAuthService::TOKEN_ENDPOINT_BACKOFF))->toBeFalse();
+
+    $redirects = array_values(array_filter(
+        $logs->getRecords(),
+        fn (object $record): bool => str_contains($record->message, 'redirected the character token request'),
+    ));
+
+    expect($redirects)->toHaveCount(1)
+        ->and($redirects[0]->context['status'])->toBe(302);
+
+    expectLogsOmit($logs, 'login-page-secret');
+});
+
+it('treats a non json alliance auth character token response as a failure', function () {
+    esiClientConfig();
+    $logs = captureLogs();
+
+    Http::fake([
+        'https://auth.example.com/wormholesystems/api/character-token/' => Http::response(
+            '<html>login-page-secret</html>',
+            200,
+        ),
+    ]);
+
+    expect(app(AllianceAuthService::class)->freshCharacterAccessToken(12345))->toBeNull();
+
+    $records = array_values(array_filter(
+        $logs->getRecords(),
+        fn (object $record): bool => str_contains($record->message, 'response was not JSON'),
+    ));
+
+    expect($records)->toHaveCount(1)
+        ->and($records[0]->context['status'])->toBe(200);
+
+    expectLogsOmit($logs, 'login-page-secret');
 });

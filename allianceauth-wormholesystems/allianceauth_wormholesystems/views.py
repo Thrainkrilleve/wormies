@@ -25,6 +25,8 @@ WORMHOLESYSTEMS_SCOPES = [
     "esi-ui.write_waypoint.v1",
 ]
 
+_WANTED_SCOPES = set(WORMHOLESYSTEMS_SCOPES)
+
 
 @login_required
 @permission_required("wormholesystems.access_wormholesystems", raise_exception=True)
