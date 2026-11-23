@@ -115,6 +115,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('maps/{map}/settings')->name('maps.settings.')->group(function () {
         Route::get('general', [MapSettingsController::class, 'show'])->name('general.show');
+        Route::put('eve-scout', [MapSettingsController::class, 'updateEveScout'])->name('eve-scout.update');
         Route::post('toggle-public', [MapSettingsController::class, 'togglePublic'])->name('toggle-public');
         Route::post('generate-share-token', [MapSettingsController::class, 'generateShareToken'])->name('generate-share-token');
         Route::delete('revoke-share-token', [MapSettingsController::class, 'revokeShareToken'])->name('revoke-share-token');

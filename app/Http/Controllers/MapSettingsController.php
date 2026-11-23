@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateEveScoutSyncRequest;
 use App\Http\Resources\MapInfoResource;
 use App\Models\Map;
+use App\Models\Region;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -30,7 +32,18 @@ final class MapSettingsController extends Controller
             'permission' => $map->getUserPermission(auth()->user())?->value,
             'is_public' => $map->is_public,
             'share_token' => $map->share_token,
+            'regions' => Region::query()->orderBy('name')->get(['id', 'name']),
         ]);
+    }
+
+    public function updateEveScout(UpdateEveScoutSyncRequest $request, Map $map): RedirectResponse
+    {
+        $map->update($request->validated());
+
+        return back()->notify(
+            'EVE-Scout import updated.',
+            'Thera and Turnur connections will follow this setting on the next run.',
+        );
     }
 
     public function togglePublic(Map $map): RedirectResponse

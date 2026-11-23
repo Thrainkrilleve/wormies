@@ -329,6 +329,11 @@ export type TMapSummary = {
     map_solarsystems_count: number;
     map_connections_count: number;
     map_user_setting: TMapUserSetting;
+    eve_scout_sync_enabled?: boolean;
+    eve_scout_hubs?: 'thera' | 'turnur' | 'both';
+    eve_scout_filter?: 'jumps' | 'region';
+    eve_scout_max_jumps?: number;
+    eve_scout_region_ids?: number[];
 };
 
 export type TMapInfo = {

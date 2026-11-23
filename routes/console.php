@@ -18,6 +18,7 @@ use App\Console\Commands\Sovereignty\GetSovereigntiesCommand;
 use App\Jobs\Characters\DispatchCharacterStatusEvents;
 use App\Jobs\RefreshDiscordNicknamesJob;
 use App\Jobs\ResyncDiscordAccessJob;
+use App\Jobs\SyncEveScoutConnectionsJob;
 use Illuminate\Queue\Console\PruneBatchesCommand;
 use Illuminate\Support\Facades\Schedule;
 
@@ -38,3 +39,4 @@ Schedule::command(AnalyzeWormholeSystems::class)->runInBackground()->daily()->wi
 Schedule::command(ResolveUnnamedOrganisationsCommand::class)->runInBackground()->hourly()->withoutOverlapping()->notDuringDowntime();
 Schedule::job(new ResyncDiscordAccessJob)->hourly()->withoutOverlapping();
 Schedule::job(new RefreshDiscordNicknamesJob)->hourly()->withoutOverlapping();
+Schedule::job(new SyncEveScoutConnectionsJob)->everyThirtyMinutes()->withoutOverlapping()->notDuringDowntime();

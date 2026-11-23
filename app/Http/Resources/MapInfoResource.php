@@ -38,6 +38,11 @@ final class MapInfoResource extends JsonResource
             'bookmark_format_return' => $this->bookmark_format_return,
             'bookmark_alias_scheme' => $this->bookmark_alias_scheme,
             'bookmark_ignored_alias' => $this->bookmark_ignored_alias,
+            'eve_scout_sync_enabled' => $this->eve_scout_sync_enabled,
+            'eve_scout_hubs' => $this->eve_scout_hubs->value,
+            'eve_scout_filter' => $this->eve_scout_filter->value,
+            'eve_scout_max_jumps' => $this->eve_scout_max_jumps,
+            'eve_scout_region_ids' => $this->eve_scout_region_ids ?? [],
             'map_user_setting' => $this->handleUserSetting(),
             'owner' => $this->mapOwner->accessible->toResource(CharacterResource::class),
         ];
