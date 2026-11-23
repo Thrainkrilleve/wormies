@@ -3,6 +3,10 @@ from allianceauth.menu.hooks import MenuItemHook
 from allianceauth.services.hooks import UrlHook
 
 from . import app_settings, urls
+from .public_views import CHARACTER_TOKEN_VIEW, allow_machine_endpoint
+
+# Alliance Auth snapshots APPS_WITH_PUBLIC_VIEWS before calling this hook.
+allow_machine_endpoint()
 
 
 class WormholeSystemsMenuItem(MenuItemHook):
@@ -30,4 +34,10 @@ def register_menu_item():
 
 @hooks.register("url_hook")
 def register_url():
-    return UrlHook(urls, "wormholesystems", r"^wormholesystems/")
+    # Qualified view name. Alliance Auth compares pattern.lookup_str to this set.
+    return UrlHook(
+        urls,
+        "wormholesystems",
+        r"^wormholesystems/",
+        excluded_views=[CHARACTER_TOKEN_VIEW],
+    )

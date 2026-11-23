@@ -71,9 +71,12 @@ final readonly class AllianceAuthService
         }
 
         try {
+            // A login redirect must stay a 302. Following it returns the login
+            // page as HTTP 200 and looks like a token response with no token.
             $response = Http::withHeaders($headers)
                 ->withBasicAuth($this->getClientId(), $this->getClientSecret())
                 ->acceptJson()
+                ->withoutRedirecting()
                 ->post($this->getInternalUrl().'/wormholesystems/api/character-token/', [
                     'character_id' => $characterId,
                 ]);
@@ -81,6 +84,15 @@ final readonly class AllianceAuthService
             Cache::put(self::TOKEN_ENDPOINT_BACKOFF, true, now()->addMinutes(10));
             Log::warning('Alliance Auth character token endpoint could not be reached', [
                 'character_id' => $characterId,
+            ]);
+
+            return null;
+        }
+
+        if ($response->redirect()) {
+            Log::warning('Alliance Auth redirected the character token request instead of returning a token', [
+                'character_id' => $characterId,
+                'status' => $response->status(),
             ]);
 
             return null;
@@ -96,7 +108,18 @@ final readonly class AllianceAuthService
             return null;
         }
 
-        $accessToken = $response->json('access_token');
+        $payload = $response->json();
+
+        if (! is_array($payload)) {
+            Log::warning('Alliance Auth character token response was not JSON', [
+                'character_id' => $characterId,
+                'status' => $response->status(),
+            ]);
+
+            return null;
+        }
+
+        $accessToken = $payload['access_token'] ?? null;
 
         if (! $response->successful() || ! is_string($accessToken) || $accessToken === '') {
             Log::warning('Alliance Auth did not return an ESI access token', [
@@ -107,8 +130,8 @@ final readonly class AllianceAuthService
             return null;
         }
 
-        $expiresIn = $response->json('expires_in');
-        $scopes = $response->json('scopes');
+        $expiresIn = $payload['expires_in'] ?? null;
+        $scopes = $payload['scopes'] ?? null;
 
         return [
             'access_token' => $accessToken,

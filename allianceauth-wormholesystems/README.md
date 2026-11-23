@@ -58,7 +58,9 @@ Go to Alliance Auth Admin (`https://auth.yourdomain.com/admin/`):
    - `WS_CLIENT_ID`
    - `WS_CLIENT_SECRET`
 
-Wormhole Systems refreshes copied ESI access tokens by calling `POST /wormholesystems/api/character-token/` with that same client id and secret (HTTP Basic) and a JSON body `{"character_id": 123}`. Alliance Auth refreshes the token with its own EVE application and returns a current access token. The refresh token is not returned. This route is only available after the plugin that contains it is installed, so an existing install needs a new package version and a redeploy before Wormhole Systems can use it. Until then Wormhole Systems keeps the copied token and asks the pilot to sign in with EVE directly.
+Wormhole Systems refreshes copied ESI access tokens by calling `POST /wormholesystems/api/character-token/` with that same client id and secret (HTTP Basic) and a JSON body `{"character_id": 123}`. Alliance Auth refreshes the token with its own EVE application and returns a current access token. The refresh token is not returned.
+
+Alliance Auth wraps plugin URLs in a login and main-character check. This route is excluded (`allianceauth_wormholesystems.views.character_token`), and the plugin adds the URL app name `wormholesystems` to `APPS_WITH_PUBLIC_VIEWS`, which is the list Alliance Auth consults before it honors that exclusion. HTTP Basic remains the only gate: POST only, CSRF-exempt, constant-time secret compare. Keep the route last in the plugin's `urls.py`. Alliance Auth stops decorating at the first excluded view, so a pattern after it would skip the login gate too. An existing install needs a package version that contains this exclusion, then a redeploy. Until then Wormhole Systems keeps the copied token and asks the pilot to sign in with EVE directly.
 
 ### 5. Grant Permissions to Users / Groups
 In Alliance Auth Admin:
