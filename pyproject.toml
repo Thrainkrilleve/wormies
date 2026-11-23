@@ -33,7 +33,7 @@ where = ["allianceauth-wormholesystems"]
 # A pip install of git+...@vX.Y.Z records X.Y.Z from that tag.
 # fallback_version is only used when git metadata is absent. The publish
 # workflow stamps it to the tag before the image build.
-[tool.setuptools-scm]
+[tool.setuptools_scm]
 tag_regex = "^v(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+)$"
 fallback_version = "0.0.21"
 local_scheme = "no-local-version"
