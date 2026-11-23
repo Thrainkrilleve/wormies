@@ -2,13 +2,10 @@
 
 declare(strict_types=1);
 
-$reverbAllowedOrigins = array_values(array_unique(array_filter([
-    mb_rtrim((string) env('APP_URL', ''), '/'),
-    ...array_map(
-        trim(...),
-        array_filter(explode(',', (string) env('REVERB_ALLOWED_ORIGINS', ''))),
-    ),
-], fn (string $origin): bool => $origin !== '')));
+use App\Support\ReverbAllowedOrigins;
+
+$appUrl = env('APP_URL');
+$extraOrigins = env('REVERB_ALLOWED_ORIGINS');
 
 return [
 
@@ -92,7 +89,15 @@ return [
                     'scheme' => env('REVERB_SCHEME', 'https'),
                     'useTLS' => env('REVERB_SCHEME', 'https') === 'https',
                 ],
-                'allowed_origins' => $reverbAllowedOrigins === [] ? ['*'] : $reverbAllowedOrigins,
+                // Hosts only. Reverb matches the request Origin's host with Str::is,
+                // so https://wormhole.example.com is stored as wormhole.example.com.
+                // A wildcard such as *.example.com is kept. '*' is used only when
+                // APP_URL and REVERB_ALLOWED_ORIGINS are both empty. A URL with no
+                // host is dropped and does not become '*'.
+                'allowed_origins' => ReverbAllowedOrigins::fromConfig(
+                    is_string($appUrl) ? $appUrl : null,
+                    is_string($extraOrigins) ? $extraOrigins : null,
+                ),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),
                 'max_message_size' => env('REVERB_APP_MAX_MESSAGE_SIZE', 10_000),
