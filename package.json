@@ -72,6 +72,14 @@
     "overrides": {
         "vite-plugin-pwa": {
             "vite": "$vite"
+        },
+        "@tailwindcss/typography": {
+            "postcss-selector-parser": "6.1.6"
+        },
+        "serialize-javascript": "7.1.4",
+        "glob": "14.0.6",
+        "editorconfig": {
+            "minimatch": "11.0.9"
         }
     }
 }
