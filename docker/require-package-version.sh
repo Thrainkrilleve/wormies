@@ -1,8 +1,8 @@
 #!/bin/sh
 # A v* tag is the release version. Check that it is semver and that the
-# tagged commit is on origin/main, then write it into __version__.
-# setup.py reads that line, so this is the only copy to stamp.
-# Non-tag builds do not run this script and keep the committed version.
+# tagged commit is on origin/main, then stamp the fallback used when git
+# metadata is absent. pip install of the tag reads the tag via setuptools-scm.
+# Non-tag builds do not run this script and keep the committed fallback.
 set -eu
 
 tag="${1:-}"
@@ -31,7 +31,7 @@ fi
 
 init="${root}/allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py"
 if [ ! -f "$init" ]; then
-    echo "could not read __version__ from ${init}" >&2
+    echo "could not read the version fallback from ${init}" >&2
     exit 1
 fi
 
@@ -46,12 +46,23 @@ if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     fi
 fi
 
-tmp=$(mktemp)
-sed "s/^__version__ *= *\"[^\"]*\"/__version__ = \"${version}\"/" "$init" > "$tmp"
-if ! grep -Fxq "__version__ = \"${version}\"" "$tmp"; then
-    rm -f "$tmp"
-    echo "could not write __version__ in ${init}" >&2
-    exit 1
-fi
-mv "$tmp" "$init"
-echo "stamped __version__ ${version} from tag ${tag}"
+stamp_assignment() {
+    file="$1"
+    key="$2"
+    if [ ! -f "$file" ]; then
+        return 0
+    fi
+    tmp=$(mktemp)
+    sed "s/^${key} *= *\"[^\"]*\"/${key} = \"${version}\"/" "$file" > "$tmp"
+    if ! grep -Fxq "${key} = \"${version}\"" "$tmp"; then
+        rm -f "$tmp"
+        echo "could not write ${key} in ${file}" >&2
+        exit 1
+    fi
+    mv "$tmp" "$file"
+}
+
+stamp_assignment "$init" "_FALLBACK_VERSION"
+stamp_assignment "${root}/pyproject.toml" "fallback_version"
+stamp_assignment "${root}/allianceauth-wormholesystems/pyproject.toml" "fallback_version"
+echo "stamped version fallback ${version} from tag ${tag}"

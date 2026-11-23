@@ -2,18 +2,26 @@
 
 declare(strict_types=1);
 
-it('reads the alliance auth package version from __version__ and stamps a valid tag', function () {
+it('derives the alliance auth package version from a git tag and stamps the fallback', function () {
     $root = dirname(__DIR__, 2);
     $init = file_get_contents($root.'/allianceauth-wormholesystems/allianceauth_wormholesystems/__init__.py');
-    preg_match('/^__version__ = "([^"]+)"/m', $init, $match);
+    preg_match('/^_FALLBACK_VERSION = "([^"]+)"/m', $init, $match);
     $version = $match[1] ?? null;
 
-    expect($version)->toMatch('/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/');
+    expect($version)->toMatch('/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/')
+        ->and($init)->toContain('from importlib.metadata import PackageNotFoundError, version')
+        ->and($init)->toContain('version("allianceauth-wormholesystems")');
+
+    foreach (['pyproject.toml', 'allianceauth-wormholesystems/pyproject.toml'] as $project) {
+        $contents = file_get_contents($root.'/'.$project);
+        expect($contents)->toContain('dynamic = ["version"]')
+            ->and($contents)->toContain('setuptools-scm')
+            ->and($contents)->toContain('fallback_version = "'.$version.'"');
+    }
 
     foreach (['setup.py', 'allianceauth-wormholesystems/setup.py'] as $setup) {
         $contents = file_get_contents($root.'/'.$setup);
-        expect($contents)->toContain('version=read_version()')
-            ->and($contents)->not->toMatch('/version\s*=\s*[\'"]\d/');
+        expect($contents)->not->toMatch('/version\s*=\s*[\'"]\d/');
     }
 
     $workflow = file_get_contents($root.'/.github/workflows/docker.yml');
@@ -24,23 +32,21 @@ it('reads the alliance auth package version from __version__ and stamps a valid 
         ->and($workflow)->toContain('git fetch --no-tags origin main:refs/remotes/origin/main');
 
     $script = $root.'/docker/require-package-version.sh';
-    $semver = '/^__version__ = "(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"$/m';
 
     $plain = packageVersionFixture();
     runPackageVersionScript($script, 'v1.2', $plain, 1);
-    expect(file_get_contents(packageVersionInit($plain)))->toBe("__version__ = \"0.0.0\"\n");
+    expect(file_get_contents(packageVersionInit($plain)))->toContain('_FALLBACK_VERSION = "0.0.0"');
 
     runPackageVersionScript($script, 'v1.2.3', $plain, 0);
-    expect(file_get_contents(packageVersionInit($plain)))->toMatch($semver)
-        ->toContain('__version__ = "1.2.3"');
+    expect(file_get_contents(packageVersionInit($plain)))->toContain('_FALLBACK_VERSION = "1.2.3"');
 
     $repo = packageVersionFixture(git: true);
     runPackageVersionScript($script, 'v9.9.9', $repo, 1);
-    expect(file_get_contents(packageVersionInit($repo)))->toContain('__version__ = "0.0.1"');
+    expect(file_get_contents(packageVersionInit($repo)))->toContain('_FALLBACK_VERSION = "0.0.1"');
 
     gitIn($repo, 'checkout main');
     runPackageVersionScript($script, 'v9.9.9', $repo, 0);
-    expect(file_get_contents(packageVersionInit($repo)))->toContain('__version__ = "9.9.9"');
+    expect(file_get_contents(packageVersionInit($repo)))->toContain('_FALLBACK_VERSION = "9.9.9"');
 });
 
 function packageVersionInit(string $root): string
@@ -53,7 +59,7 @@ function packageVersionFixture(bool $git = false): string
     $root = sys_get_temp_dir().'/pkg-version-'.bin2hex(random_bytes(4));
     $init = packageVersionInit($root);
     mkdir(dirname($init), 0777, true);
-    file_put_contents($init, "__version__ = \"0.0.0\"\n");
+    file_put_contents($init, "_FALLBACK_VERSION = \"0.0.0\"\n");
 
     if (! $git) {
         return $root;
@@ -64,7 +70,7 @@ function packageVersionFixture(bool $git = false): string
     gitIn($root, 'config user.name test');
     gitIn($root, 'add .');
     gitIn($root, 'commit -m init');
-    file_put_contents($init, "__version__ = \"0.0.1\"\n");
+    file_put_contents($init, "_FALLBACK_VERSION = \"0.0.1\"\n");
     gitIn($root, 'checkout -b side');
     gitIn($root, 'add .');
     gitIn($root, 'commit -m side');
