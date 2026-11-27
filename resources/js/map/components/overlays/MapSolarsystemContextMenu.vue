@@ -74,11 +74,11 @@ const options: TMapSolarsystemStatus[] = ['unknown', 'friendly', 'hostile', 'act
 
 <template>
     <ContextMenuContent>
-        <ContextMenuItem @select="handleTogglePin" v-if="can_write">
+        <ContextMenuItem @select="handleTogglePin" v-if="can_write && !map_solarsystem.is_ghost">
             <Pin class="size-4" />
             {{ map_solarsystem.pinned ? 'Unpin' : 'Pin' }}
         </ContextMenuItem>
-        <ContextMenuItem @select="handleAddConnection" v-if="can_write">
+        <ContextMenuItem @select="handleAddConnection" v-if="can_write && !map_solarsystem.is_ghost">
             <Waypoints class="size-4" />
             Add connection
         </ContextMenuItem>
@@ -169,11 +169,11 @@ const options: TMapSolarsystemStatus[] = ['unknown', 'friendly', 'hostile', 'act
 
         <ContextMenuSeparator />
 
-        <ContextMenuItem @select="toggleHomeSystem" v-if="can_write">
+        <ContextMenuItem @select="toggleHomeSystem" v-if="can_write && !map_solarsystem.is_ghost">
             <Home class="size-4" />
             {{ isHome ? 'Unset Home System' : 'Set as Home System' }}
         </ContextMenuItem>
-        <ContextMenuItem @select="toggleRallyPoint" v-if="can_write">
+        <ContextMenuItem @select="toggleRallyPoint" v-if="can_write && !map_solarsystem.is_ghost">
             <Flag class="size-4" />
             {{ isRally ? 'Clear Rally Point' : 'Set as Rally Point' }}
         </ContextMenuItem>

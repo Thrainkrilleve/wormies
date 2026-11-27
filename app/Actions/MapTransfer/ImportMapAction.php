@@ -244,13 +244,14 @@ final readonly class ImportMapAction
                     array_map(fn (array $entry): array => [
                         'map_id' => $map->id,
                         'solarsystem_id' => $entry['solarsystem_id'],
+                        'real_system_key' => $map->id.':'.$entry['solarsystem_id'],
                         'map_solarsystem_details_id' => $details_ids[$entry['solarsystem_id']],
                         'alias' => $entry['alias'],
                         'position_x' => (int) $entry['position_x'],
                         'position_y' => (int) $entry['position_y'],
                         'pinned' => (bool) ($entry['pinned'] ?? false),
                     ], $chunk),
-                    ['map_id', 'solarsystem_id'],
+                    ['real_system_key'],
                     ['map_solarsystem_details_id', 'alias', 'position_x', 'position_y', 'pinned'],
                 );
             }

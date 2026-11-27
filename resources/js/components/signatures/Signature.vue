@@ -221,9 +221,44 @@ const bookmark_name = computed(() =>
     }),
 );
 
-function copyBookmark() {
-    navigator.clipboard.writeText(bookmark_name.value);
-    toast.success('Copied bookmark to clipboard', { description: bookmark_name.value });
+function csrfToken(): string {
+    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+async function copyBookmark() {
+    let name = bookmark_name.value;
+
+    if (can_write.value && signature.id) {
+        const response = await fetch(`/signatures/${signature.id}/claim-alias`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': csrfToken(),
+            },
+            body: '{}',
+        });
+
+        if (response.ok) {
+            const payload = (await response.json()) as { alias?: string | null };
+            if (payload.alias) {
+                name = buildSignatureBookmark({
+                    signature,
+                    currentSystem: { alias: selected_map_solarsystem.alias, class: selected_map_solarsystem.solarsystem.class },
+                    connectionTarget: {
+                        alias: payload.alias,
+                        solarsystem: { class: 'unknown', name: payload.alias },
+                    },
+                    aliases: map_solarsystems.value.map((system) => system.alias).filter((alias): alias is string => Boolean(alias)),
+                    formats: page.props.map,
+                });
+            }
+        }
+    }
+
+    await navigator.clipboard.writeText(name);
+    toast.success('Copied bookmark to clipboard', { description: name });
 }
 </script>
 

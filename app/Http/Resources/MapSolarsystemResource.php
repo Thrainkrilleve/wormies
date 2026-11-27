@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Resources;
 
+use App\Enums\MapSolarsystemStatus;
 use App\Models\MapSolarsystem;
+use App\Models\MapSolarsystemDetails;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Throwable;
@@ -23,15 +25,21 @@ final class MapSolarsystemResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $details = $this->getRelationValue('details');
+
         return [
             'id' => $this->id,
             'map_id' => $this->map_id,
             'alias' => $this->alias,
-            'status' => $this->details->status,
-            'occupier_alias' => $this->details->occupier_alias,
+            'status' => $details instanceof MapSolarsystemDetails ? $details->status : MapSolarsystemStatus::Unknown->value,
+            'occupier_alias' => $details instanceof MapSolarsystemDetails ? $details->occupier_alias : null,
             'position' => $this->getPositionArray(),
             'pinned' => $this->pinned,
             'solarsystem_id' => $this->solarsystem_id,
+            'is_ghost' => $this->isGhost(),
+            'ghost_label' => $this->raisedBySignature?->signature_id,
+            'hangs_off_id' => $this->hangs_off_id,
+            'raised_by_signature_id' => $this->raised_by_signature_id,
             'signatures_count' => $this->signatures_count,
             'uncategorized_signatures_count' => $this->uncategorized_signatures_count,
             'wormhole_signatures_count' => $this->wormhole_signatures_count,

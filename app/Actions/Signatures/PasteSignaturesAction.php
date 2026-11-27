@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Signatures;
 
 use App\Actions\MapConnections\SyncConnectionShipSizeAction;
+use App\Actions\MapSolarsystem\ReconcileGhostsAction;
 use App\Data\NewSignatureData;
 use App\Data\RawSignatureData;
 use App\Data\SignaturesData;
@@ -27,6 +28,7 @@ final readonly class PasteSignaturesAction
         public UpdateSignatureAction $updateSignatureAction,
         private MapBroadcaster $mapBroadcaster,
         private SyncConnectionShipSizeAction $syncConnectionShipSizeAction,
+        private ReconcileGhostsAction $reconcileGhostsAction,
     ) {
         $this->wormholeCategory = SignatureCategory::query()->firstWhere('code', \App\Enums\SignatureCategory::Wormhole);
     }
@@ -91,6 +93,8 @@ final readonly class PasteSignaturesAction
             if ($signatures->isNotEmpty()) {
                 $this->mapBroadcaster->signaturesChanged($map_solarsystem);
             }
+
+            $this->reconcileGhostsAction->handle($map_solarsystem->map);
         });
     }
 

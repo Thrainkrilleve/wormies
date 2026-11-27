@@ -43,6 +43,7 @@ final class MapInfoResource extends JsonResource
             'eve_scout_filter' => $this->eve_scout_filter->value,
             'eve_scout_max_jumps' => $this->eve_scout_max_jumps,
             'eve_scout_region_ids' => $this->eve_scout_region_ids ?? [],
+            'ghost_unlinked_wormholes' => $this->ghost_unlinked_wormholes,
             'map_user_setting' => $this->handleUserSetting(),
             'owner' => $this->mapOwner->accessible->toResource(CharacterResource::class),
         ];

@@ -10,6 +10,7 @@ use App\Models\MapConnection;
 use App\Models\MapSolarsystem;
 use App\Models\Wormhole;
 use App\Support\Broadcasting\MapBroadcaster;
+use Illuminate\Validation\ValidationException;
 
 final readonly class CreateMapConnectionAction
 {
@@ -20,6 +21,18 @@ final readonly class CreateMapConnectionAction
 
     public function handle(array $data): MapConnection
     {
+        $ends = MapSolarsystem::query()
+            ->whereIn('id', [$data['from_map_solarsystem_id'], $data['to_map_solarsystem_id']])
+            ->get();
+
+        foreach ($ends as $node) {
+            if ($node->isGhost() && $node->mapConnections()->exists()) {
+                throw ValidationException::withMessages([
+                    'to_map_solarsystem_id' => 'An unmapped hole cannot take another connection.',
+                ]);
+            }
+        }
+
         $map_id = MapSolarsystem::query()
             ->where('id', $data['from_map_solarsystem_id'])
             ->value('map_id');

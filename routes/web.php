@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BulkMapConnectionController;
 use App\Http\Controllers\BulkSignatureController;
 use App\Http\Controllers\BulkWaypointController;
+use App\Http\Controllers\ClaimSignatureAliasController;
 use App\Http\Controllers\DiscordAccessController;
 use App\Http\Controllers\DiscordAccountController;
 use App\Http\Controllers\DocumentationController;
@@ -156,6 +157,7 @@ Route::middleware('auth')->group(function () {
     Route::post('eve-scout-connections', [EveScoutConnectionController::class, 'store'])->name('eve-scout-connections.store');
 
     Route::resource('map-solarsystems.signatures', SignatureController::class)->only(['store', 'update', 'destroy'])->shallow();
+    Route::post('signatures/{signature}/claim-alias', ClaimSignatureAliasController::class)->name('signatures.claim-alias');
     Route::resource('paste-signatures', PasteSignatureController::class)->only(['store']);
 
     Route::put('user-characters/{character}', [UserCharacterController::class, 'update'])->name('user-characters.update');

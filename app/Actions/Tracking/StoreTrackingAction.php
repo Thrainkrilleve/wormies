@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Tracking;
 
 use App\Actions\MapConnections\CreateMapConnectionAction;
+use App\Actions\MapSolarsystem\ResolveGhostSystemAction;
 use App\Actions\MapSolarsystem\StoreMapSolarsystemAction;
 use App\Actions\MapSolarsystem\UpdateMapSolarsystemAction;
 use App\Actions\Signatures\UpdateSignatureAction;
@@ -26,6 +27,7 @@ use App\Utilities\WormholeConnectionClassifier;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
 use Random\RandomException;
+use Spatie\LaravelData\Optional;
 use Throwable;
 
 final readonly class StoreTrackingAction
@@ -45,6 +47,7 @@ final readonly class StoreTrackingAction
         private UpdateMapSolarsystemAction $updateMapSolarsystemAction,
         private CreateMapConnectionAction $storeMapConnectionRequest,
         private UpdateSignatureAction $updateSignatureAction,
+        private ResolveGhostSystemAction $resolveGhostSystemAction,
         #[Config('map.max_size.x')]
         private int $max_x,
         #[Config('map.max_size.y')]
@@ -74,8 +77,18 @@ final readonly class StoreTrackingAction
                 return;
             }
 
-            if ($this->stargatePairDetector->isStargatePair($origin->solarsystem, $to_solarsystem)) {
+            if ($origin->solarsystem_id !== null && $this->stargatePairDetector->isStargatePair($origin->solarsystem, $to_solarsystem)) {
                 return;
+            }
+
+            $signatureId = $data->signature_id instanceof Optional ? null : $data->signature_id;
+            if (is_int($signatureId)) {
+                $ghost = MapSolarsystem::query()->where('raised_by_signature_id', $signatureId)->first();
+                if ($ghost instanceof MapSolarsystem) {
+                    $this->resolveGhostSystemAction->handle($ghost, $to_solarsystem, $data->alias);
+
+                    return;
+                }
             }
 
             $ship_size = $this->connectionClassifier->getSize($origin->solarsystem, $to_solarsystem);

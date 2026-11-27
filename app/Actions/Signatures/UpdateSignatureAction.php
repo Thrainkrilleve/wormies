@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Signatures;
 
 use App\Actions\MapConnections\SyncConnectionShipSizeAction;
+use App\Actions\MapSolarsystem\ReconcileGhostsAction;
 use App\Data\SignatureData;
 use App\Enums\LifetimeStatus;
 use App\Enums\MassStatus;
@@ -21,6 +22,7 @@ final readonly class UpdateSignatureAction
     public function __construct(
         private MapBroadcaster $mapBroadcaster,
         private SyncConnectionShipSizeAction $syncConnectionShipSizeAction,
+        private ReconcileGhostsAction $reconcileGhostsAction,
     ) {}
 
     /**
@@ -45,6 +47,7 @@ final readonly class UpdateSignatureAction
             broadcast(new SignatureUpdatedEvent($signature->mapSolarsystem->map_id))->toOthers();
 
             $this->mapBroadcaster->signaturesChanged($signature->mapSolarsystem);
+            $this->reconcileGhostsAction->handle($signature->mapSolarsystem->map);
 
             return $signature;
         });

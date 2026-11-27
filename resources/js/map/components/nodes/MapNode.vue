@@ -158,7 +158,7 @@ onBeforeUnmount(() => {
                     </Link>
                     <template v-if="canWrite">
                         <SolarsystemDragHandle data-drag-handle v-if="!system.pinned && !store.isLayoutLocked.value" />
-                        <SolarsystemConnectionHandle data-connect-handle :data-connection-source="system.solarsystem_id" />
+                        <SolarsystemConnectionHandle v-if="!system.is_ghost" data-connect-handle :data-connection-source="system.solarsystem_id" />
                     </template>
                 </div>
             </div>

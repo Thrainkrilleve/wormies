@@ -53,6 +53,15 @@ const { resolveSolarsystem } = useStaticSolarsystems();
 
 const resolvedMap = computed<TMap>(() => {
     const solarsystems = map.map_solarsystems?.map((mapSolarsystem) => {
+        if (mapSolarsystem.solarsystem_id == null) {
+            const label = mapSolarsystem.alias || mapSolarsystem.ghost_label || 'Unmapped';
+
+            return {
+                ...mapSolarsystem,
+                solarsystem: resolveSolarsystem({ id: 0, name: label }),
+            };
+        }
+
         const resolvedSolarsystem = resolveSolarsystem(mapSolarsystem.solarsystem_id);
 
         return {

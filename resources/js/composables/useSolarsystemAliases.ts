@@ -6,7 +6,7 @@ export function useSolarsystemAliases(mapSolarsystems: MaybeRefOrGetter<TMapSola
         const lookup = new Map<number, string>();
 
         for (const mapSolarsystem of toValue(mapSolarsystems) ?? []) {
-            if (mapSolarsystem.alias) {
+            if (mapSolarsystem.alias && mapSolarsystem.solarsystem_id != null && !mapSolarsystem.is_ghost) {
                 lookup.set(mapSolarsystem.solarsystem_id, mapSolarsystem.alias);
             }
         }

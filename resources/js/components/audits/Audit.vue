@@ -23,7 +23,7 @@ const resolvedSelectedSolarsystem = computed(() => {
         return null;
     }
 
-    const resolved = resolveSolarsystem({ id: selected.solarsystem_id });
+    const resolved = resolveSolarsystem(selected.solarsystem_id ? { id: selected.solarsystem_id } : null);
     return {
         ...selected,
         solarsystem: resolved,
