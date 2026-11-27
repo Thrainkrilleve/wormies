@@ -6,6 +6,7 @@ namespace App\Actions\Signatures;
 
 use App\Actions\MapConnections\DeleteMapConnectionAction;
 use App\Events\Signatures\SignatureDeletedEvent;
+use App\Models\MapSolarsystem;
 use App\Models\Signature;
 use App\Support\Broadcasting\MapBroadcaster;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +33,17 @@ final readonly class DeleteSignatureAction
             $map_solarsystem = $signature->mapSolarsystem;
 
             broadcast_unless($without_events, new SignatureDeletedEvent($map_solarsystem->map_id))->toOthers();
-            $this->deleteMapConnection($signature, $remove_map_solarsystem);
+
+            $ghost = MapSolarsystem::query()->where('raised_by_signature_id', $signature->id)->first();
+            if ($ghost instanceof MapSolarsystem) {
+                // The connection cascade would delete this scan. Detach first, then
+                // deleting the scan cascades the ghost and its edge.
+                DB::table('signatures')->where('id', $signature->id)->update(['map_connection_id' => null]);
+                $signature->map_connection_id = null;
+            } else {
+                $this->deleteMapConnection($signature, $remove_map_solarsystem);
+            }
+
             $signature->delete();
 
             if (! $without_events) {

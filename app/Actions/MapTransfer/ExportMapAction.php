@@ -136,7 +136,10 @@ final readonly class ExportMapAction
     {
         $connections = $map->mapConnections()
             ->with(['fromMapSolarsystem:id,solarsystem_id', 'toMapSolarsystem:id,solarsystem_id', 'wormhole:id,name'])
-            ->get();
+            ->get()
+            ->reject(fn (MapConnection $connection): bool => $connection->fromMapSolarsystem->solarsystem_id === null
+                || $connection->toMapSolarsystem->solarsystem_id === null)
+            ->values();
 
         $indexes = $connections->pluck('id')->flip()->all();
 

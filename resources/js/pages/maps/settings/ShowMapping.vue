@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MapLayoutController from '@/actions/App/Http/Controllers/MapLayoutController';
 import MapUserSettingController from '@/actions/App/Http/Controllers/MapUserSettingController';
 import PlusIcon from '@/components/icons/PlusIcon.vue';
 import BookmarkFormatCard from '@/components/map/BookmarkFormatCard.vue';
@@ -35,6 +36,18 @@ const { ignoreSolarsystem, unignoreSolarsystem, clearIgnoreList } = useMapIgnore
 const { staticData, loadStaticData } = useStaticData();
 
 void loadStaticData();
+
+function setDrawUnmappedHoles(value: boolean | 'indeterminate') {
+    if (!canManageSettings.value) {
+        return;
+    }
+
+    router.put(
+        MapLayoutController.update(map.slug).url,
+        { ghost_unlinked_wormholes: value === true },
+        { preserveScroll: true, preserveState: true, only: ['map'] },
+    );
+}
 
 function updateMapUserSettings(settings: Partial<TMapUserSetting>) {
     router.put(MapUserSettingController.update(map.slug).url, settings, {
@@ -178,6 +191,17 @@ function handleSolarsystemSelect(solarsystem: TStaticSolarsystem) {
                             </div>
                         </div>
                         <Checkbox :model-value="map_user_settings.preselect_signature_enabled" @update:model-value="handlePreselectSignatureChange" />
+                    </div>
+
+                    <div v-if="canManageSettings" class="flex items-center justify-between">
+                        <div class="space-y-0.5">
+                            <Label class="text-sm font-medium">Draw unmapped holes</Label>
+                            <div class="text-sm text-muted-foreground">
+                                Draw a dashed node for each wormhole signature that is not connected yet. Off by default. Turning it off removes those
+                                nodes and keeps the signatures. Names are claimed when a bookmark is copied.
+                            </div>
+                        </div>
+                        <Checkbox :model-value="map.ghost_unlinked_wormholes === true" @update:model-value="setDrawUnmappedHoles" />
                     </div>
 
                     <div class="flex items-center justify-between">

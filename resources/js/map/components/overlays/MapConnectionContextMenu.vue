@@ -44,6 +44,9 @@ const locked_ship_size = computed(() => {
 const is_gate_connected = computed(() => {
     const from = map_connection.source.solarsystem_id;
     const to = map_connection.target.solarsystem_id;
+    if (from == null || to == null) {
+        return false;
+    }
     return staticData.value?.connections[from]?.includes(to) ?? false;
 });
 

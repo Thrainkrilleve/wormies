@@ -94,6 +94,18 @@ describe('buildSignatureBookmark (unconnected, numeric)', () => {
         expect(name).toBe('11 ABC');
     });
 
+    it('moves on once a claimed alias is already on the map', () => {
+        const name = buildSignatureBookmark({
+            signature: baseSignature(),
+            currentSystem: { alias: 'A' },
+            connectionTarget: null,
+            aliases: ['A1'],
+            formats: NUMERIC_FORMATS,
+        });
+
+        expect(name).toBe('A2 ABC');
+    });
+
     it('numbers from 1 for an unaliased current system', () => {
         const name = buildSignatureBookmark({
             signature: baseSignature(),

@@ -32,6 +32,7 @@ final class UpdateMapLayoutRequest extends FormRequest
             'layout' => ['sometimes', Rule::enum(MapLayout::class)],
             'allow_layout_override' => ['sometimes', 'boolean'],
             'constant_width_enabled' => ['sometimes', 'boolean'],
+            'ghost_unlinked_wormholes' => ['sometimes', 'boolean'],
         ];
     }
 }

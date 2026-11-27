@@ -12,7 +12,12 @@ export function convertMapConnectionsToWorkerEdges(
     }
 
     const lookup = new Map<number, number>();
-    mapSolarsystems.forEach((system) => lookup.set(system.id, system.solarsystem_id));
+    mapSolarsystems.forEach((system) => {
+        if (system.is_ghost || system.solarsystem_id == null) {
+            return;
+        }
+        lookup.set(system.id, system.solarsystem_id);
+    });
 
     const edges: RoutingConnection[] = [];
 

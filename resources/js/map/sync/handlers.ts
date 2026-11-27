@@ -57,7 +57,12 @@ export const mapEventHandlers: Record<string, SyncHandler> = {
     [MapSolarsystemsUpsertedEvent]: (store, payload, resolveSolarsystem) => {
         const { map_solarsystems } = payload as SystemsUpsertedPayload;
         for (const system of map_solarsystems) {
-            store.upsertSystem({ ...system, solarsystem: resolveSolarsystem(system.solarsystem_id) });
+            store.upsertSystem({
+                ...system,
+                solarsystem: system.solarsystem_id
+                    ? resolveSolarsystem(system.solarsystem_id)
+                    : resolveSolarsystem({ id: 0, name: system.alias || system.ghost_label || 'Unmapped' }),
+            });
         }
         return { reload: ['map_navigation'], reloadIfSelected: map_solarsystems.map((system) => system.id) };
     },

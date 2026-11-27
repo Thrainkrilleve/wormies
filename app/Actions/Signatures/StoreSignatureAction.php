@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Signatures;
 
 use App\Actions\MapConnections\SyncConnectionShipSizeAction;
+use App\Actions\MapSolarsystem\ReconcileGhostsAction;
 use App\Data\NewSignatureData;
 use App\Events\Signatures\SignatureCreatedEvent;
 use App\Models\MapSolarsystem;
@@ -20,6 +21,7 @@ final readonly class StoreSignatureAction
     public function __construct(
         private MapBroadcaster $mapBroadcaster,
         private SyncConnectionShipSizeAction $syncConnectionShipSizeAction,
+        private ReconcileGhostsAction $reconcileGhostsAction,
     ) {}
 
     /**
@@ -55,6 +57,8 @@ final readonly class StoreSignatureAction
             if (! $without_signatures_changed_event) {
                 $this->mapBroadcaster->signaturesChanged($mapSolarsystem);
             }
+
+            $this->reconcileGhostsAction->handle($mapSolarsystem->map);
 
             return $signature;
         }, attempts: 5);

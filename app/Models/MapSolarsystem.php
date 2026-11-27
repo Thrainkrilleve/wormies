@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use InvalidArgumentException;
 use Staudenmeir\EloquentHasManyDeep\HasManyDeep;
 use Staudenmeir\EloquentHasManyDeep\HasRelationships;
 
@@ -26,8 +27,11 @@ use Staudenmeir\EloquentHasManyDeep\HasRelationships;
  *
  * @property int $id
  * @property int $map_id
- * @property int $solarsystem_id
- * @property int $map_solarsystem_details_id
+ * @property int|null $solarsystem_id
+ * @property int|null $map_solarsystem_details_id
+ * @property int|null $raised_by_signature_id
+ * @property int|null $hangs_off_id
+ * @property string|null $real_system_key
  * @property string|null $alias
  * @property int $position_x
  * @property int $position_y
@@ -38,7 +42,7 @@ use Staudenmeir\EloquentHasManyDeep\HasRelationships;
  * @property-read int|null $map_connections_count
  * @property-read Solarsystem $solarsystem
  * @property-read Map $map
- * @property-read MapSolarsystemDetails $details
+ * @property-read MapSolarsystemDetails|null $details
  * @property-read Collection<int,MapConnection> $mapConnections
  * @property-read Collection<int,MapConnection> $connectionsTo
  * @property-read Collection<int,MapConnection> $connectionsFrom
@@ -96,6 +100,17 @@ final class MapSolarsystem extends Model
         return $this->belongsTo(MapSolarsystemDetails::class, 'map_solarsystem_details_id');
     }
 
+    /** @return BelongsTo<Signature, $this> */
+    public function raisedBySignature(): BelongsTo
+    {
+        return $this->belongsTo(Signature::class, 'raised_by_signature_id');
+    }
+
+    public function isGhost(): bool
+    {
+        return $this->raised_by_signature_id !== null;
+    }
+
     /**
      * @return HasOne<WormholeSystem,$this>
      */
@@ -137,6 +152,25 @@ final class MapSolarsystem extends Model
             new WormholeSystem()->wormholeStatics(),
             new WormholeStatic()->wormhole(),
         );
+    }
+
+    protected static function booted(): void
+    {
+        self::saving(function (MapSolarsystem $system): void {
+            $ghost = $system->raised_by_signature_id !== null;
+
+            if ($ghost && ($system->solarsystem_id !== null || $system->hangs_off_id === null || $system->pinned)) {
+                throw new InvalidArgumentException('An unmapped hole needs a parent, no solar system, and cannot be pinned.');
+            }
+
+            if (! $ghost && ($system->solarsystem_id === null || $system->hangs_off_id !== null)) {
+                throw new InvalidArgumentException('A placed system needs a solar system and cannot hang off a signature.');
+            }
+
+            $system->real_system_key = $system->solarsystem_id === null
+                ? null
+                : $system->map_id.':'.$system->solarsystem_id;
+        });
     }
 
     protected function casts(): array

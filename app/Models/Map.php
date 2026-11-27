@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $bookmark_format_return
  * @property AliasScheme $bookmark_alias_scheme
  * @property string $bookmark_ignored_alias
+ * @property bool $ghost_unlinked_wormholes
  * @property bool $eve_scout_sync_enabled
  * @property EveScoutHub $eve_scout_hubs
  * @property EveScoutFilter $eve_scout_filter
@@ -87,10 +88,13 @@ final class Map extends Model
         return $this->mapConnections()
             ->with(['fromMapSolarsystem:id,solarsystem_id', 'toMapSolarsystem:id,solarsystem_id'])
             ->get()
+            ->filter(fn (MapConnection $connection): bool => $connection->fromMapSolarsystem->solarsystem_id !== null
+                && $connection->toMapSolarsystem->solarsystem_id !== null)
             ->map(fn (MapConnection $connection): array => [
                 $connection->fromMapSolarsystem->solarsystem_id,
                 $connection->toMapSolarsystem->solarsystem_id,
             ])
+            ->values()
             ->all();
     }
 
@@ -250,6 +254,7 @@ final class Map extends Model
             'eve_scout_filter' => EveScoutFilter::class,
             'eve_scout_max_jumps' => 'integer',
             'eve_scout_region_ids' => 'array',
+            'ghost_unlinked_wormholes' => 'boolean',
         ];
     }
 

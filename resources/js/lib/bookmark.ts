@@ -196,10 +196,9 @@ function knownTargetClass(targetClass: string | null | undefined): TStringedSola
  * name/region/occupier tokens and an unidentified class stay blank rather than
  * rendering "UNKNOWN".
  *
- * Two unscanned signatures in the same system will suggest the same next
- * alias, since the guess only sees committed aliases on the map — an
- * uncommitted suggestion on another row is invisible here. This mirrors the
- * existing tracking-suggestion behaviour and is not solved here.
+ * Unconnected rows only see aliases already stored on the map, including
+ * aliases claimed onto unmapped holes. Copying a bookmark claims the next
+ * alias onto that hole so the following copy moves on.
  *
  * `detectReturn` is an explicit opt-in (default `false`): when `true`, a
  * connected target that is up-chain / the ignored (home) alias renders with the

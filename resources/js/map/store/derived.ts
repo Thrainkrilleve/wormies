@@ -83,7 +83,7 @@ export function createDerivedState(entities: EntityState, view: ViewState, meta:
         for (const connection of entities.connections.values()) {
             const source = entities.systems.get(connection.from_map_solarsystem_id);
             const target = entities.systems.get(connection.to_map_solarsystem_id);
-            if (!source || !target) continue;
+            if (!source || !target || source.is_ghost || target.is_ghost) continue;
             const fromIndex = indexBySolarsystem.get(source.solarsystem_id);
             const toIndex = indexBySolarsystem.get(target.solarsystem_id);
             if (fromIndex !== undefined && toIndex !== undefined && Math.abs(fromIndex - toIndex) === 1) {
@@ -101,7 +101,7 @@ export function createDerivedState(entities: EntityState, view: ViewState, meta:
         for (const connection of entities.connections.values()) {
             const source = entities.systems.get(connection.from_map_solarsystem_id);
             const target = entities.systems.get(connection.to_map_solarsystem_id);
-            if (!source || !target) continue;
+            if (!source || !target || source.is_ghost || target.is_ghost) continue;
             const info = getRallyRouteInfo(source.solarsystem_id, target.solarsystem_id);
             if (info.onRoute) {
                 directions.set(connection.id, info.reversed ? 'reverse' : 'forward');

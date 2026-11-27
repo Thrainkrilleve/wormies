@@ -86,6 +86,10 @@ export type TMapSolarsystemBase = {
     id: number;
     map_id: number;
     solarsystem_id: number;
+    is_ghost?: boolean;
+    ghost_label?: string | null;
+    hangs_off_id?: number | null;
+    raised_by_signature_id?: number | null;
     alias: string | null;
     status: TMapSolarsystemStatus;
     occupier_alias: string | null;
@@ -324,6 +328,7 @@ export type TMapSummary = {
     bookmark_format_return: string;
     bookmark_alias_scheme: TAliasScheme;
     bookmark_ignored_alias: string;
+    ghost_unlinked_wormholes?: boolean;
     is_public: boolean;
     role: 'viewer' | 'member' | 'manager' | 'owner' | null;
     map_solarsystems_count: number;
